@@ -1,0 +1,56 @@
+service: rpi-aws-iot-prototype
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: us-west-1
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource: "*"
+
+constructs:
+  sensor-events:
+    type: queue
+    worker:
+      handler: handler.data_appender
+  daily-sensor-data:
+    type: storage
+
+functions:
+  eventReceiver:
+    handler: handler.event_receiver
+    environment:
+      QUEUE_URL: ${construct:sensor-events.queueUrl}
+
+resources:
+  Resources:
+    AllEventsRule:
+      Type: "AWS::IoT::TopicRule"
+      Properties:
+        RuleName: all_events_rule
+        TopicRulePayload:
+          Sql: "SELECT * FROM 'rpi/sensor/events'"
+          Actions:
+            - Lambda:
+                FunctionArn:
+                  Fn::GetAtt:
+                    # Note that the function name "EventReceiverLambdaFunction" corresponds to the "eventReceiver"
+                    # function declared under the "functions" section. This is just the way that Serverless
+                    # Framework, by convention, names functions using the function key under "functions"
+                    - EventReceiverLambdaFunction
+                    - Arn
+    RPiB3Home:
+      Type: "AWS::IoT::Thing"
+      Properties:
+        ThingName: RPi3BHome
+
+plugins:
+  - serverless-lift
+  - serverless-python-requirements
+
+package:
+  patterns:
+    - "!node_modules/**"
