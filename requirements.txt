@@ -4,3 +4,6 @@ wheel~=0.38.4
 setuptools~=65.5.1
 AWSIoTPythonSDK~=1.5.2
 board~=1.0
+pyftdi~=0.55.0
+pyserial~=3.5
+botocore~=1.29.165

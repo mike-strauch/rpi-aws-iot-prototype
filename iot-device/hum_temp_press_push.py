@@ -2,6 +2,7 @@ from data_endpoint import DataEndpoint
 import board
 import adafruit_sht4x
 import adafruit_lps2x
+import time
 
 i2c = board.I2C()
 sht = adafruit_sht4x.SHT4x(i2c)
@@ -13,7 +14,7 @@ temperatureF = (1.8 * temperatureC) + 32
 iot_endpoint = DataEndpoint()
 
 try:
-    data = {"temp": temperatureC, "hum": relative_humidity, "press": lps.pressure}
+    data = {"time": int(round(time.time() * 1000)), "temp": temperatureC, "hum": relative_humidity, "press": lps.pressure}
     print(f'Sending data: {data}')
     iot_endpoint.push_data(data)
 except Exception as e:

@@ -22,6 +22,7 @@ constructs:
 functions:
   eventReceiver:
     handler: handler.event_receiver
+    memorySize: 256
     environment:
       QUEUE_URL: ${construct:sensor-events.queueUrl}
 
