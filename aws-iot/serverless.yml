@@ -10,14 +10,19 @@ provider:
       Action:
         - lambda:InvokeFunction
       Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - "s3:GetObject"
+        - "s3:PutObject"
+      Resource: "arn:aws:s3:::rpi-atmospheric-data/*"
 
 constructs:
   sensor-events:
     type: queue
     worker:
       handler: handler.data_appender
-  daily-sensor-data:
-    type: storage
+      environment:
+        S3_BUCKET: rpi-atmospheric-data
 
 functions:
   eventReceiver:
@@ -25,6 +30,15 @@ functions:
     memorySize: 256
     environment:
       QUEUE_URL: ${construct:sensor-events.queueUrl}
+  fetchData:
+    handler: handler.fetch_data
+    memorySize: 256
+    environment:
+      S3_BUCKET: rpi-atmospheric-data
+    events:
+      - http:
+          path: /fetch
+          method: GET
 
 resources:
   Resources:

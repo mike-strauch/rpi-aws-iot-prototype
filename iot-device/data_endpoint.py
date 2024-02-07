@@ -47,4 +47,4 @@ class DataEndpoint:
         print("Connection resumed. return_code: {} session_present: {}".format(return_code, session_present))
 
     def on_publish(connection, error, **kwargs):
-        print("test")
+        print("publish complete")
