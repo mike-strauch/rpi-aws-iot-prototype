@@ -1,4 +1,5 @@
 import json
+# These dependencies are only on the RPi
 from awscrt import io, mqtt, auth, http
 from awsiot import mqtt_connection_builder
 
@@ -6,7 +7,7 @@ from awsiot import mqtt_connection_builder
 class DataEndpoint:
 
     def __init__(self):
-        # TODO: Put values in a config file
+        # TODO: Put values in a config file or pass them as args (or both)
         self.mqtt_connection = None
         self.endpoint = 'a1ktn0eiegwonn-ats.iot.us-west-1.amazonaws.com'
         self.root_ca_file = '../keys/root-CA.crt'
