@@ -40,6 +40,7 @@ functions:
           path: /fetch
           method: GET
 
+
 resources:
   Resources:
     AllEventsRule:
@@ -65,7 +66,19 @@ resources:
 plugins:
   - serverless-lift
   - serverless-python-requirements
+  - serverless-localstack
 
 package:
   patterns:
     - "!node_modules/**"
+
+custom:
+  # For local testing/debugging of lambda functions, we use localstack to simulate AWS services.
+  localstack:
+    stages:
+      - local
+    host: http://localhost
+    edgePort: 4566
+    autostart: true
+    lambda:
+      mountCode: true
