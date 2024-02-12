@@ -1,51 +1,60 @@
 'use client'
 
-import {CartesianGrid, Label, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
+import {CartesianGrid, Label, Line, LineChart, Tooltip, XAxis, YAxis} from "recharts";
 import moment from "moment";
+import {useState, useEffect} from "react";
+import TimeSeries from '../../types/TimeSeries';
+import {Box, SimpleGrid} from "@chakra-ui/react";
+import DatePicker from "react-datepicker";
 
-const data: ({ date: string; visitors: number})[] = [
-    { date: '2023-01-01', visitors: 200 },
-    { date: '2023-01-02', visitors: 300 },
-    { date: '2023-01-03', visitors: 600 },
-    { date: '2023-01-04', visitors: 800 },
-    { date: '2023-01-05', visitors: 500 },
-    { date: '2023-01-06', visitors: 700 },
-    { date: '2023-01-07', visitors: 400 }
-];
+import "react-datepicker/dist/react-datepicker.css";
+
+const DATA_ENDPOINT: string = 'https://uua5w5gbl8.execute-api.us-west-1.amazonaws.com/dev/fetch'
 
 const TimeSeriesChart = ({data, xKey, yKey, xLabel, yLabel}:
-     {data: ({ date: string; visitors: number})[], xKey: string, yKey: string, xLabel: string, yLabel: string}) => {
+     {data: ({})[], xKey: string, yKey: string, xLabel: string, yLabel: string}) => {
     return (
             <LineChart
                 width={900}
                 height={500}
                 data={data}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                margin={{ top: 5, right: 30, left: 20, bottom: 45 }}
             >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                     dataKey={xKey}
-                    tickFormatter={(tickItem) => moment(tickItem).format('YYYY-MM-DD')}
+                    tickFormatter={(tickItem) => moment(tickItem).format('h:mm a')}
                 >
                     {xLabel && <Label
                         position='insideBottom'
-                        offset={-2}
+                        offset={-15}
                         value={xLabel}
-                        style={{ fontSize: '80%', fill: 'white'}}
                     />}
                 </XAxis>
-                <YAxis label={yLabel ? yLabel : ''}/>
-                <Tooltip labelFormatter={(label) => moment(label).format('YYYY-MM-DD')} />
-                <Line type="monotone" dataKey={yKey} stroke="#8884d8" />
+                <YAxis>
+                    {yLabel && <Label
+                        angle={-90}
+                        position='insideLeft'
+                        offset={-10}
+                        value={yLabel}
+                    />}
+                </YAxis>
+                <Tooltip labelFormatter={(label) => moment(label).format('h:mm a')} />
+                <Line type="monotone" dataKey={yKey} stroke="#8884d8" dot={false} />
             </LineChart>
     );
 };
 
 
 export default function Graphs() {
-    const sortedVisitors: number[] = data.map(item => item.visitors).sort();
-    const minY: number = sortedVisitors[0] - 5;
-    const maxY: number = sortedVisitors[sortedVisitors.length - 1] + 5;
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [environmentalData, setEnvironmentalData] = useState(new TimeSeries([]));
+    useEffect(() => {
+        fetch(`${DATA_ENDPOINT}${date ? '?date=' + date : ''}`)
+            .then(response => response.json())
+            .then(data => setEnvironmentalData(new TimeSeries(data['entries'])))
+            .catch(error => console.error('Error fetching data:', error));
+        }, [date]);
 
     return (
         <main className="flex min-h-screen flex-col items-center p-10">
@@ -53,11 +62,23 @@ export default function Graphs() {
                 <h1>Welcome to Graphs</h1>
             </div>
             <div>
-                <TimeSeriesChart data={data}
-                                 xKey='date'
-                                 yKey='visitors'
-                                 xLabel='Date'
-                                 yLabel='Number of Visitors'/>
+                <TimeSeriesChart data={environmentalData.dataPoints}
+                                 xKey='t'
+                                 yKey='tmp'
+                                 xLabel='Time of Day (UTC)'
+                                 yLabel='Temperature (in C)'/>
+            </div>
+            <div>
+                <SimpleGrid columns={3} spacing={10}>
+                    <Box w="90%" p={4} >
+                        <label htmlFor="date" className="mr-5">Select a date:</label>
+                        <DatePicker
+                            name='date'
+                            selected={new Date()}
+                            onChange={(date) => setDate(date != null ? date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0])} />
+                    </Box>
+                    <Box></Box>
+                </SimpleGrid>
             </div>
         </main>
     );
