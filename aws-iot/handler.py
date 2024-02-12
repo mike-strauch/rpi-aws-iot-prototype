@@ -51,7 +51,7 @@ def fetch_data(event, context):
     query_string_params = event.get('queryStringParameters', {})
     date_param = '' if not query_string_params else query_string_params.get('date', '')
     if date_param and not _date_valid(date_param):
-        return _default_response(400, {'message': 'Invalid date parameter'})
+        return _default_cors_response(400, {'message': 'Invalid date parameter'})
 
     return _fetch_data_for_date(date_param)
 
@@ -63,11 +63,11 @@ def _fetch_data_for_date(date_str):
     try:
         json_data = load_datafile_as_json(file_key)
         logger.debug(f"File \'{file_key}\' fetched {'successfully' if json_data else 'unsuccessfully'}.")
-        return _default_response(200, json_data)
+        return _default_cors_response(200, json_data)
 
     except Exception as e:
         logger.error(f"An error occurred while fetching file with key {file_key}: {e}")
-        return _default_response(500, str(e))
+        return _default_cors_response(500, str(e))
 
 
 def _date_valid(date_str):
@@ -85,3 +85,10 @@ def _default_response(status, response_body):
             'Content-Type': 'application/json',
         }
     }
+
+
+def _default_cors_response(status, response_body):
+    default_response = _default_response(status, response_body)
+    default_response['headers']['Access-Control-Allow-Origin'] = '*'
+    default_response['headers']['Access-Control-Allow-Credentials'] = True
+    return default_response
