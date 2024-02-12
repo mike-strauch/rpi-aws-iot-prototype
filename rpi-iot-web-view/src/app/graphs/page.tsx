@@ -16,9 +16,9 @@ const TimeSeriesChart = ({data, xKey, yKey, xLabel, yLabel}:
     return (
             <LineChart
                 width={900}
-                height={500}
+                height={400}
                 data={data}
-                margin={{ top: 5, right: 30, left: 20, bottom: 45 }}
+                margin={{ top: 5, right: 30, left: 20, bottom: 55 }}
             >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
@@ -71,11 +71,16 @@ export default function Graphs() {
             <div>
                 <SimpleGrid columns={3} spacing={10}>
                     <Box w="90%" p={4} >
-                        <label htmlFor="date" className="mr-5">Select a date:</label>
-                        <DatePicker
-                            name='date'
-                            selected={new Date()}
-                            onChange={(date) => setDate(date != null ? date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0])} />
+                        <div className="bg-slate-500 border-solid rounded-lg border-2 border-gray-200 p-4 text-white">
+                            <label htmlFor="date" className="mb-2 inline-block">Show data for:</label>
+                            <DatePicker
+                                showIcon={true}
+                                name='date'
+                                selected={new Date(date)}
+                                onChange={(date) => setDate(date != null ? date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0])}
+                                className="text-black"
+                            />
+                        </div>
                     </Box>
                     <Box></Box>
                 </SimpleGrid>
