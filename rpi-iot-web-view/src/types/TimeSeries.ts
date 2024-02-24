@@ -2,8 +2,10 @@
 
 export default class TimeSeries {
     dataPoints: [] = [];
+    date?: string | null = null;
 
-    constructor(dataPoints: []) {
-        this.dataPoints = dataPoints
+    constructor(dataPoints: [], date?: string | null) {
+        this.dataPoints = dataPoints;
+        this.date = date;
     }
 }

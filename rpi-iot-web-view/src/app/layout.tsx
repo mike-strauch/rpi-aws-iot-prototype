@@ -16,7 +16,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <Box className="flex">
           <SideBar />
-          <Box className="flex-1 p-10">
+          <Box className="flex-1">
             {children}
           </Box>
         </Box></body>
