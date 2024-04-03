@@ -15,6 +15,10 @@ provider:
         - "s3:GetObject"
         - "s3:PutObject"
       Resource: "arn:aws:s3:::rpi-atmospheric-data/*"
+    - Effect: "Allow"
+      Action:
+        - "sagemaker:*"
+      Resource: "*"
 
 constructs:
   sensor-events:
@@ -40,7 +44,69 @@ functions:
           path: /fetch
           method: GET
           cors: true
+  generateCSVFromDailyData:
+    handler: prepare.generate_csv_from_daily_data
+    memorySize: 512
+    environment:
+      S3_BUCKET: rpi-atmospheric-data
+  trainModels:
+    handler: prepare.train_models
+    memorySize: 256
+    timeout: 360
+    environment:
+      S3_BUCKET: rpi-atmospheric-data
+  deployModels:
+    handler: predict.deploy_models
+    memorySize: 256
+    environment:
+      S3_BUCKET: rpi-atmospheric-data
+  predictDailyAtmosphericMetrics:
+    handler: predict.predict_daily_atmospheric_metrics
+    memorySize: 256
+    environment:
+      S3_BUCKET: rpi-atmospheric-data
+  tearDownModels:
+    handler: predict.tear_down_models
+    memorySize: 256
+    environment:
+      S3_BUCKET: rpi-atmospheric-data
 
+
+stepFunctions:
+  stateMachines:
+    futurePredictorStateMachine:
+      definition:
+        Comment: "Aggregates data weekly, generates a ML model to do future predictions, predicts the next 7 days, and tears down the model."
+        StartAt: AggregateData
+        States:
+          AggregateData:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [generateCSVFromDailyData, Arn]
+            Next: TrainModels
+          TrainModels:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [trainModels, Arn]
+            Next: DeployModels
+            ResultPath: "$.models"
+          DeployModels:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [deployModels, Arn]
+            Next: PredictNext7Days
+            ResultPath: "$.aggregateFileKey"
+          PredictNext7Days:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [predictDailyAtmosphericMetrics, Arn]
+            Next: TearDownModels
+            ResultPath: "$.models"
+          TearDownModels:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [tearDownModels, Arn]
+            End: true
 
 resources:
   Resources:
@@ -64,10 +130,14 @@ resources:
       Properties:
         ThingName: RPi3BHome
 
+
+
 plugins:
   - serverless-lift
   - serverless-python-requirements
   - serverless-localstack
+  - serverless-step-functions
+
 
 package:
   patterns:

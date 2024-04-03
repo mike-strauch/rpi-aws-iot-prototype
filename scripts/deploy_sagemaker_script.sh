@@ -1,0 +1,1 @@
+aws s3 cp ./sagemaker/train.py s3://rpi-atmospheric-data/sagemaker/

@@ -53,7 +53,12 @@ def append_data_to_file(data_points, file_key):
 
 def _store_json_datafile(file_key, json_data):
     updated_file_content = json.dumps(json_data).encode('utf-8')
+    store_file(file_key, BytesIO(updated_file_content))
+
+
+def store_file(file_key, file_content):
+    # Store the file in the S3 bucket
     try:
-        S3.put_object(Bucket=S3_BUCKET, Key=file_key, Body=BytesIO(updated_file_content))
+        S3.put_object(Bucket=S3_BUCKET, Key=file_key, Body=file_content)
     except Exception as e:
         logger.error(f"An error occurred while storing file {file_key} in {S3_BUCKET}: {e}")
