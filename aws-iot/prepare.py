@@ -4,6 +4,7 @@ import datetime
 import io
 import csv
 import time
+import os
 
 from data_store import load_datafile_as_json, store_file
 
@@ -15,7 +16,7 @@ def generate_csv_from_daily_data(event, context):
     log.info("Aggregating data from the last 30 days.")
     today = datetime.datetime.now()
     csv_output = _convert_daily_reports_to_csv(today)
-    aggregated_data_file_key = _get_dataset_path()
+    aggregated_data_file_key = _create_dataset_file_key()
     _upload_csv_to_s3(csv_output, aggregated_data_file_key)
     return {
         'aggregateFileKey': aggregated_data_file_key
@@ -66,47 +67,73 @@ def _upload_csv_to_s3(csv_output, file_key):
 
 
 def train_models(event, context):
+    training_job_params = _get_training_job_params()
     sagemaker = boto3.client('sagemaker')
-    date_today = datetime.datetime.now().strftime('%Y-%m-%d')
-    training_job_name = f'{date_today}-train-models-job-{int(datetime.datetime.now().timestamp())}'
-
-    sagemaker.create_training_job(
-        TrainingJobName=training_job_name,
-        AlgorithmSpecification={
-              'TrainingImage': '746614075791.dkr.ecr.us-west-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3',
-              'TrainingInputMode': 'File',
-        },
-        # TODO: Use env variable?
-        RoleArn='arn:aws:iam::904381544143:role/rpi-aws-iot-prototype-dev-us-west-1-lambdaRole',
-        ResourceConfig={
-          'InstanceType': 'ml.m5.large',
-          'InstanceCount': 1,
-          'VolumeSizeInGB': 5,
-        },
-        OutputDataConfig={
-            'S3OutputPath': 's3://rpi-atmospheric-data/models/',
-        },
-        StoppingCondition={
-          'MaxRuntimeInSeconds': 180,
-        },
-        HyperParameters={
-          'sagemaker_program': 'train.py',
-          'sagemaker_submit_directory': 's3://rpi-atmospheric-data/sagemaker/',
-        })
-
+    sagemaker.create_training_job(**training_job_params)
     log.info("Building models, waiting for completion")
+    _wait_for_job_completion(training_job_params['TrainingJobName'])
+    log.info("Finished model training")
+
+
+def _wait_for_job_completion(job_name):
+    sagemaker = boto3.client('sagemaker')
     status = 'InProgress'
     tries = 30
+
     while status in ['InProgress', 'Stopping'] and tries > 0:
         time.sleep(10)
-        response = sagemaker.describe_training_job(TrainingJobName=training_job_name)
+        response = sagemaker.describe_training_job(TrainingJobName=job_name)
         if 'FailureReason' in response:
-            log.info(f'Failure reason: {response["FailureReason"]}')
+            log.info(f'model training job failed, failure reason: {response["FailureReason"]}')
+            break
 
         status = response['TrainingJobStatus']
         tries -= 1
 
 
-def _get_dataset_path():
+def _get_training_job_params():
+    date_today = datetime.datetime.now().strftime('%Y-%m-%d')
+    training_job_name = f'{date_today}-train-models-job-{int(datetime.datetime.now().timestamp())}'
+    base_s3_bucket = os.getenv('S3_BUCKET')
+
+    return {
+        "TrainingJobName": training_job_name,
+        "AlgorithmSpecification": {
+            "TrainingImage": "746614075791.dkr.ecr.us-west-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3",
+            "TrainingInputMode": "File"
+        },
+        "HyperParameters": {
+            "sagemaker_program": "train.py",
+            "sagemaker_submit_directory": f"s3://{base_s3_bucket}/sagemaker/train.tar.gz",
+            "sagemaker_region": "us-west-1",
+            "s3_bucket": base_s3_bucket
+        },
+        "RoleArn": "arn:aws:iam::904381544143:role/rpi-aws-iot-prototype-dev-us-west-1-lambdaRole",
+        "OutputDataConfig": {
+            "S3OutputPath": f"s3://{base_s3_bucket}/sagemaker"  # Specify your model output location
+        },
+        "InputDataConfig": [
+            {
+                "ChannelName": "training",
+                "DataSource": {
+                    "S3DataSource": {
+                        "S3DataType": "S3Prefix",
+                        "S3Uri": f"s3://{base_s3_bucket}/aggregates/"
+                    }
+                }
+            }
+        ],
+        "ResourceConfig": {
+            "InstanceType": "ml.m5.large",  # Specify the instance type for training
+            "InstanceCount": 1,
+            "VolumeSizeInGB": 50
+        },
+        "StoppingCondition": {
+            "MaxRuntimeInSeconds": 86400  # Set a stopping condition (e.g., 24 hours)
+        }
+    }
+
+
+def _create_dataset_file_key():
     date_today = datetime.datetime.now().strftime('%Y-%m-%d')
     return f'aggregates/{date_today}-aggregate-data.csv'

@@ -14,10 +14,15 @@ provider:
       Action:
         - "s3:GetObject"
         - "s3:PutObject"
+        - "s3:ListBucket"
       Resource: "arn:aws:s3:::rpi-atmospheric-data/*"
     - Effect: "Allow"
       Action:
         - "sagemaker:*"
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - "iam:PassRole"
       Resource: "*"
 
 constructs:
