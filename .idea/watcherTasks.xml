@@ -21,5 +21,25 @@
       <option name="workingDir" value="$PROJECT_DIR$/iot-device" />
       <envs />
     </TaskOptions>
+    <TaskOptions isEnabled="true">
+      <option name="arguments" value="" />
+      <option name="checkSyntaxErrors" value="true" />
+      <option name="description" />
+      <option name="exitCodeBehavior" value="ERROR" />
+      <option name="fileExtension" value="py" />
+      <option name="immediateSync" value="true" />
+      <option name="name" value="Push train script to s3" />
+      <option name="output" value="" />
+      <option name="outputFilters">
+        <array />
+      </option>
+      <option name="outputFromStdout" value="false" />
+      <option name="program" value="$PROJECT_DIR$/scripts/deploy_sagemaker_script.sh" />
+      <option name="runOnExternalChanges" value="true" />
+      <option name="scopeName" value="Sagemaker files" />
+      <option name="trackOnlyRoot" value="false" />
+      <option name="workingDir" value="$PROJECT_DIR$" />
+      <envs />
+    </TaskOptions>
   </component>
 </project>

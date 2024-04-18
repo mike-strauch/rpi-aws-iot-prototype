@@ -6,7 +6,7 @@ import csv
 import time
 import os
 
-from data_store import load_datafile_as_json, store_file
+from data_store import load_datafile_as_json, store_file, get_aggregate_dataset_file_key
 
 log = logging.getLogger()
 s3 = boto3.client('s3')
@@ -16,7 +16,7 @@ def generate_csv_from_daily_data(event, context):
     log.info("Aggregating data from the last 30 days.")
     today = datetime.datetime.now()
     csv_output = _convert_daily_reports_to_csv(today)
-    aggregated_data_file_key = _create_dataset_file_key()
+    aggregated_data_file_key = get_aggregate_dataset_file_key()
     _upload_csv_to_s3(csv_output, aggregated_data_file_key)
     return {
         'aggregateFileKey': aggregated_data_file_key
@@ -132,8 +132,3 @@ def _get_training_job_params():
             "MaxRuntimeInSeconds": 86400  # Set a stopping condition (e.g., 24 hours)
         }
     }
-
-
-def _create_dataset_file_key():
-    date_today = datetime.datetime.now().strftime('%Y-%m-%d')
-    return f'aggregates/{date_today}-aggregate-data.csv'

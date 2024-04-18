@@ -8,6 +8,7 @@ import io
 import pickle
 import boto3
 import argparse
+import tarfile
 
 
 def _build_models():
@@ -20,33 +21,39 @@ def _build_models():
     print("Loaded aggregate data from s3")
     env_data_df = pd.read_csv(StringIO(env_data_string))
     # one hot encode the day of week column because linear regression model can only deal with ints
-    env_data_df = pd.get_dummies(env_data_df, columns=['day_of_week'])
+    one_hot_days_of_week = pd.get_dummies(env_data_df, columns=['day_of_week'], prefix='', prefix_sep='')
+
+    # Reorder columns to match the order of the days of the week so prediction code can set the correct day of week
+    # column to true
+    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    one_hot_days_of_week = one_hot_days_of_week.reindex(columns=day_order, fill_value=0)
+
+    env_data_df = env_data_df.drop('day_of_week', axis=1)
+    env_data_df = pd.concat([env_data_df, one_hot_days_of_week], axis=1)
+
+    print(env_data_df.head())
 
     _build_store_models(env_data_df)
 
 
 def _build_store_models(env_data_df):
     print("Building temperature model")
-    date_today = pd.to_datetime('today').strftime('%Y-%m-%d')
-    temp_model_name = f'{date_today}-temperature_model.pkl'
     temperature_model = _build_model(env_data_df.drop('temperature', axis=1),
                                      env_data_df['temperature'])
     print("Storing temperature model")
-    _store_model_s3(temperature_model, temp_model_name)
+    _store_model_s3(temperature_model, 'temperature')
 
     print("Building humidity model")
-    hum_model_name = f'{date_today}-humidity_model.pkl'
     humidity_model = _build_model(env_data_df.drop('humidity', axis=1),
                                   env_data_df['humidity'])
     print("Storing humidity model")
-    _store_model_s3(humidity_model, hum_model_name)
+    _store_model_s3(humidity_model, 'humidity')
 
     print("Building pressure model")
-    pressure_model_name = f'{date_today}-pressure_model.pkl'
     pressure_model = _build_model(env_data_df.drop('pressure', axis=1),
                                   env_data_df['pressure'])
     print("Storing pressure model")
-    _store_model_s3(pressure_model, pressure_model_name)
+    _store_model_s3(pressure_model, 'pressure')
 
 
 def _build_model(train_features_df, predict_feature_df):
@@ -63,14 +70,43 @@ def _build_model(train_features_df, predict_feature_df):
     return model
 
 
-def _store_model_s3(model, model_name):
-    with io.BytesIO() as f:
-        pickle.dump(model, f)
-        f.seek(0)  # Move to the beginning of the in-memory file
+def _store_model_s3(model, model_type):
+    inference_script_buffer = _load_inference_script()
 
-        s3_client = boto3.client('s3', region_name='us-west-1')
-        object_name = f'models/{model_name}'
-        s3_client.upload_fileobj(f, S3_BUCKET, object_name)
+    tar_buffer = io.BytesIO()
+    date_today = pd.to_datetime('today').strftime('%Y-%m-%d')
+    with tarfile.open(fileobj=tar_buffer, mode='w:gz') as tar:
+        # Add model to the tar.gz file
+        with io.BytesIO() as f:
+            pickle.dump(model, f)
+            f.seek(0)
+            tarinfo_model = tarfile.TarInfo(name=f'{date_today}-{model_type}-model.pkl')
+            tarinfo_model.size = len(f.getvalue())
+            tar.addfile(tarinfo_model, fileobj=f)
+            print('Added model to tar.gz file')
+
+        # Add script.py to the tar.gz file
+        tarinfo_script = tarfile.TarInfo(name='script.py')
+        tarinfo_script.size = len(inference_script_buffer.getvalue())
+        tar.addfile(tarinfo_script, fileobj=inference_script_buffer)
+        print('Added inference script to tar.gz file')
+
+    tar_buffer.seek(0)
+
+    object_name = f'models/{date_today}-{model_type}-model.tar.gz'
+
+    s3_client = boto3.client('s3', region_name='us-west-1')
+    s3_client.upload_fileobj(tar_buffer, S3_BUCKET, object_name)
+    print(f"Model and inference script packaged and uploaded to {object_name}")
+
+
+def _load_inference_script():
+    s3_client = boto3.client('s3', region_name='us-west-1')
+    inference_script_key = 'sagemaker/script.py'
+    inference_script_buffer = io.BytesIO()
+    s3_client.download_fileobj(Bucket=S3_BUCKET, Key=inference_script_key, Fileobj=inference_script_buffer)
+    inference_script_buffer.seek(0)  # Rewind to the start of the file after downloading
+    return inference_script_buffer
 
 
 def _load_aggregate_env_data(file_key):

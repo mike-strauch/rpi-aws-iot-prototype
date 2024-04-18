@@ -63,15 +63,17 @@ functions:
   deployModels:
     handler: predict.deploy_models
     memorySize: 256
+    timeout: 360
     environment:
       S3_BUCKET: rpi-atmospheric-data
   predictDailyAtmosphericMetrics:
     handler: predict.predict_daily_atmospheric_metrics
     memorySize: 256
+    timeout: 360
     environment:
       S3_BUCKET: rpi-atmospheric-data
-  tearDownModels:
-    handler: predict.tear_down_models
+  cleanUpPredictionResources:
+    handler: predict.cleanup_resources
     memorySize: 256
     environment:
       S3_BUCKET: rpi-atmospheric-data
@@ -105,12 +107,12 @@ stepFunctions:
             Type: Task
             Resource:
               Fn::GetAtt: [predictDailyAtmosphericMetrics, Arn]
-            Next: TearDownModels
+            Next: CleanUp
             ResultPath: "$.models"
-          TearDownModels:
+          CleanUp:
             Type: Task
             Resource:
-              Fn::GetAtt: [tearDownModels, Arn]
+              Fn::GetAtt: [cleanUpPredictionResources, Arn]
             End: true
 
 resources:
@@ -158,3 +160,6 @@ custom:
     autostart: true
     lambda:
       mountCode: true
+  pythonRequirements:
+    dockerizePip: true
+    zip: true

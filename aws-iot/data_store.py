@@ -2,6 +2,7 @@ import json
 import boto3
 import os
 import logging
+import datetime
 from botocore.exceptions import ClientError
 from io import BytesIO
 
@@ -62,3 +63,17 @@ def store_file(file_key, file_content):
         S3.put_object(Bucket=S3_BUCKET, Key=file_key, Body=file_content)
     except Exception as e:
         logger.error(f"An error occurred while storing file {file_key} in {S3_BUCKET}: {e}")
+
+
+def get_aggregate_dataset_file_key():
+    date_today = datetime.datetime.now().strftime('%Y-%m-%d')
+    # TODO: aggregates folder should be env variable/config property?
+    return f'aggregates/{date_today}-aggregate-data.csv'
+
+
+def load_aggregate_env_data():
+    aggregate_data_file_key = get_aggregate_dataset_file_key()
+    logger.debug(f"Loading aggregate data from s3: {aggregate_data_file_key}")
+    obj = S3.get_object(Bucket=S3_BUCKET, Key=aggregate_data_file_key)
+    env_content = obj['Body'].read().decode('utf-8')
+    return env_content
