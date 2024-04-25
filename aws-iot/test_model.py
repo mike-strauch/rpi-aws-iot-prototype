@@ -1,4 +1,5 @@
-from sklearn.linear_model import LinearRegression
+# For testing to make sure a model is actually predicting values
+
 import pickle
 
 
