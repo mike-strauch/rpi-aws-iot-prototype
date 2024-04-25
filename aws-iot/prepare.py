@@ -67,7 +67,10 @@ def _upload_csv_to_s3(csv_output, file_key):
 
 
 def train_models(event, context):
-    training_job_params = _get_training_job_params()
+    if 'aggregateFileKey' not in event:
+        raise ValueError('No aggregate file key was provided, aborting')
+
+    training_job_params = _get_training_job_params(event)
     sagemaker = boto3.client('sagemaker')
     sagemaker.create_training_job(**training_job_params)
     log.info("Building models, waiting for completion")
@@ -91,7 +94,7 @@ def _wait_for_job_completion(job_name):
         tries -= 1
 
 
-def _get_training_job_params():
+def _get_training_job_params(event):
     date_today = datetime.datetime.now().strftime('%Y-%m-%d')
     training_job_name = f'{date_today}-train-models-job-{int(datetime.datetime.now().timestamp())}'
     base_s3_bucket = os.getenv('S3_BUCKET')
@@ -106,7 +109,8 @@ def _get_training_job_params():
             "sagemaker_program": "train.py",
             "sagemaker_submit_directory": f"s3://{base_s3_bucket}/sagemaker/train.tar.gz",
             "sagemaker_region": "us-west-1",
-            "s3_bucket": base_s3_bucket
+            "s3_bucket": base_s3_bucket,
+            "aggregate_file_key": event['aggregateFileKey']
         },
         "RoleArn": "arn:aws:iam::904381544143:role/rpi-aws-iot-prototype-dev-us-west-1-lambdaRole",
         "OutputDataConfig": {

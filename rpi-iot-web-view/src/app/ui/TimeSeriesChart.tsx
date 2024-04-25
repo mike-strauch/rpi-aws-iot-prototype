@@ -1,10 +1,12 @@
 import {CartesianGrid, Label, Line, LineChart, Tooltip, XAxis, YAxis} from "recharts";
 import moment from "moment/moment";
+import TimeSeries from "@/types/TimeSeries";
 
 type TimeSeriesChartProps = {
-    data: ({})[],
+    data: TimeSeries,
     xKey: string,
     yKey: string,
+    predictionKey?: string,
     xLabel: string,
     yLabel: string,
     height?: number,
@@ -16,7 +18,7 @@ export const TimeSeriesChart = (props: TimeSeriesChartProps) => {
         <LineChart
             width={props.width ? props.width : 450}
             height={props.height ? props.height : 450}
-            data={props.data}
+            data={props.data.dataPoints}
             margin={{ top: 5, right: 30, left: 20, bottom: 55 }}
         >
             <CartesianGrid strokeDasharray="3 3" />
@@ -41,6 +43,8 @@ export const TimeSeriesChart = (props: TimeSeriesChartProps) => {
             </YAxis>
             <Tooltip labelFormatter={(label) => moment(label).format('h:mm a')} />
             <Line type="monotone" dataKey={props.yKey} stroke="#8884d8" dot={false} />
+            {props.predictionKey && props.data.hasKey(props.predictionKey) &&
+                <Line type="monotone" dataKey={props.predictionKey} stroke="#82ca9d" dot={false} />}
         </LineChart>
     );
 };

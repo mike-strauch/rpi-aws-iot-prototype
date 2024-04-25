@@ -46,20 +46,48 @@ def data_appender(event, context):
 
 
 # HTTP accessible Lambda Functions
-def fetch_data(event, context):
+def fetch_metrics(event, context):
+    # TODO: This function now receives a deviceId parameter when called which can be used to retrieve
+    # data for a specific device.
     logger.debug('Got a fetch_data event')
     query_string_params = event.get('queryStringParameters', {})
     date_param = '' if not query_string_params else query_string_params.get('date', '')
     if date_param and not _date_valid(date_param):
         return _default_cors_response(400, {'message': 'Invalid date parameter'})
 
-    return _fetch_data_for_date(date_param)
+    return _fetch_metrics_for_date(date_param)
 
 
-def _fetch_data_for_date(date_str):
+def fetch_predictions(event, context):
+    # TODO: This function now receives a deviceId parameter when called which can be used to retrieve
+    # data for a specific device.
+    logger.debug('Got a fetch_predictions event')
+    query_string_params = event.get('queryStringParameters', {})
+    date_param = '' if not query_string_params else query_string_params.get('date', '')
+    if date_param and not _date_valid(date_param):
+        return _default_cors_response(400, {'message': 'Invalid date parameter'})
+
+    return _fetch_predictions_for_date(date_param)
+
+
+def _fetch_metrics_for_date(date_str):
     # default to today's date if date provided is empty which is different from it being invalid
     file_key = date_str or datetime.now().strftime("%Y-%m-%d")
-    logger.debug(f'Fetching data for file with key {date_str}')
+    logger.debug(f'Fetching data for file with key {file_key}')
+    try:
+        json_data = load_datafile_as_json(file_key)
+        logger.debug(f"File \'{file_key}\' fetched {'successfully' if json_data else 'unsuccessfully'}.")
+        return _default_cors_response(200, json_data)
+
+    except Exception as e:
+        logger.error(f"An error occurred while fetching file with key {file_key}: {e}")
+        return _default_cors_response(500, str(e))
+
+
+def _fetch_predictions_for_date(date_str):
+    # default to today's date if date provided is empty which is different from it being invalid
+    file_key = (date_str or datetime.now().strftime("%Y-%m-%d")) + '-predictions'
+    logger.debug(f'Fetching data for file with key {file_key}')
     try:
         json_data = load_datafile_as_json(file_key)
         logger.debug(f"File \'{file_key}\' fetched {'successfully' if json_data else 'unsuccessfully'}.")

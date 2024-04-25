@@ -71,9 +71,9 @@ def get_aggregate_dataset_file_key():
     return f'aggregates/{date_today}-aggregate-data.csv'
 
 
-def load_aggregate_env_data():
-    aggregate_data_file_key = get_aggregate_dataset_file_key()
+def load_aggregate_env_data(aggregate_data_file_key):
     logger.debug(f"Loading aggregate data from s3: {aggregate_data_file_key}")
     obj = S3.get_object(Bucket=S3_BUCKET, Key=aggregate_data_file_key)
     env_content = obj['Body'].read().decode('utf-8')
     return env_content
+

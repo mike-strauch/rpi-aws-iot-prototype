@@ -39,14 +39,24 @@ functions:
     memorySize: 256
     environment:
       QUEUE_URL: ${construct:sensor-events.queueUrl}
-  fetchData:
-    handler: handler.fetch_data
+  fetchDeviceMetrics:
+    handler: handler.fetch_metrics
     memorySize: 256
     environment:
       S3_BUCKET: rpi-atmospheric-data
     events:
       - http:
-          path: /fetch
+          path: /devices/{deviceId}/metrics
+          method: GET
+          cors: true
+  fetchDevicePredictions:
+    handler: handler.fetch_predictions
+    memorySize: 256
+    environment:
+      S3_BUCKET: rpi-atmospheric-data
+    events:
+      - http:
+          path: /devices/{deviceId}/predictions
           method: GET
           cors: true
   generateCSVFromDailyData:
@@ -69,12 +79,13 @@ functions:
   predictDailyAtmosphericMetrics:
     handler: predict.predict_daily_atmospheric_metrics
     memorySize: 256
-    timeout: 360
+    timeout: 480
     environment:
       S3_BUCKET: rpi-atmospheric-data
   cleanUpPredictionResources:
-    handler: predict.cleanup_resources
+    handler: finalize.cleanup_resources
     memorySize: 256
+    timeout: 180
     environment:
       S3_BUCKET: rpi-atmospheric-data
 
@@ -91,24 +102,31 @@ stepFunctions:
             Resource:
               Fn::GetAtt: [generateCSVFromDailyData, Arn]
             Next: TrainModels
+            ResultPath: "$.aggregateFileKey"
           TrainModels:
             Type: Task
             Resource:
               Fn::GetAtt: [trainModels, Arn]
             Next: DeployModels
-            ResultPath: "$.models"
+            InputPath: "$.aggregateFileKey"
           DeployModels:
             Type: Task
             Resource:
               Fn::GetAtt: [deployModels, Arn]
             Next: PredictNext7Days
-            ResultPath: "$.aggregateFileKey"
+            ResultPath: "$.endpoints"
+            Catch:
+              - ErrorEquals: [ "States.ALL" ]
+                Next: CleanUp
           PredictNext7Days:
             Type: Task
             Resource:
               Fn::GetAtt: [predictDailyAtmosphericMetrics, Arn]
             Next: CleanUp
-            ResultPath: "$.models"
+            InputPath: "$"
+            Catch:
+              - ErrorEquals: [ "States.ALL" ]
+                Next: CleanUp
           CleanUp:
             Type: Task
             Resource:

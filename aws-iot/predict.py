@@ -28,7 +28,6 @@ def deploy_models(event, context):
         return endpoints
     except Exception as e:
         log.error(f"An error occurred while deploying models: {e}")
-        _cleanup_resources()
         raise e
 
 
@@ -100,13 +99,14 @@ def _create_endpoints():
     if (not _wait_for_endpoint_creation(temp_endpoint_name)
             or not _wait_for_endpoint_creation(humidity_endpoint_name)
             or not _wait_for_endpoint_creation(pressure_endpoint_name)):
-        cleanup_resources()
         raise Exception("Endpoint creation failed.")
 
     return {
-        'temperature-endpoint': temp_endpoint_name,
-        'humidity-endpoint': humidity_endpoint_name,
-        'pressure-endpoint': pressure_endpoint_name
+        'endpoints': {
+            'temperature-endpoint': temp_endpoint_name,
+            'humidity-endpoint': humidity_endpoint_name,
+            'pressure-endpoint': pressure_endpoint_name
+        }
     }
 
 
@@ -156,42 +156,16 @@ def _wait_for_endpoint_creation(endpoint_name):
     return False
 
 
-# May seem superfluous, but it's to allow for a lambda agnostic internal API
-def cleanup_resources(event, context):
-    _cleanup_resources()
 
-
-def _cleanup_resources():
-    log.info("Cleaning up models, endpoint configs, endpoints")
-    sagemaker = boto3.client('sagemaker')
-    date_today = datetime.datetime.now().strftime('%Y-%m-%d')
-
-    for model_type in MODEL_TYPES:
-        model_name = f'{date_today}-{model_type}-model'
-        endpoint_config_name = f'{date_today}-{model_type}-endpoint-config'
-        endpoint_name = f'{model_name}-endpoint'
-
-        try:
-            sagemaker.delete_endpoint(EndpointName=endpoint_name)
-            log.info(f"Deleted endpoint: {endpoint_name}")
-        except Exception as e:
-            log.info(f"Unable to delete endpoint {endpoint_name}: {e}")
-
-        try:
-            sagemaker.delete_endpoint_config(EndpointConfigName=endpoint_config_name)
-            log.info(f"Deleted endpoint config: {endpoint_config_name}")
-        except Exception as e:
-            log.info(f"Unable to delete endpoint config {endpoint_config_name}: {e}")
-
-        try:
-            sagemaker.delete_model(ModelName=model_name)
-            log.info(f"Deleted model: {model_name}")
-        except Exception as e:
-            log.info(f"Unable to delete model {model_name}: {e}")
 
 
 def predict_daily_atmospheric_metrics(event, context):
-    aggregate_data = load_aggregate_env_data()
+    if 'aggregateFileKey' not in event:
+        raise ValueError('No aggregate file key was provided, aborting')
+    if 'endpoints' not in event:
+        raise ValueError('No model endpoint names were provided, aborting')
+
+    aggregate_data = load_aggregate_env_data(event['aggregateFileKey'])
     aggregate_data_df = pd.read_csv(StringIO(aggregate_data))
     metric_averages_by_time_of_day = _get_averages_by_time_of_day(aggregate_data_df)
 
@@ -276,4 +250,4 @@ def _store_predictions_for_day(predictions, date):
 
 
 def _get_endpoint_name(event, model_type):
-    return event[f'{model_type}-endpoint']
+    return event['endpoints'][f'{model_type}-endpoint']
