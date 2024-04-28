@@ -102,11 +102,9 @@ def _create_endpoints():
         raise Exception("Endpoint creation failed.")
 
     return {
-        'endpoints': {
-            'temperature-endpoint': temp_endpoint_name,
-            'humidity-endpoint': humidity_endpoint_name,
-            'pressure-endpoint': pressure_endpoint_name
-        }
+        'temperature-endpoint': temp_endpoint_name,
+        'humidity-endpoint': humidity_endpoint_name,
+        'pressure-endpoint': pressure_endpoint_name
     }
 
 

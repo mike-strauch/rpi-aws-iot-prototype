@@ -108,12 +108,14 @@ stepFunctions:
             Resource:
               Fn::GetAtt: [trainModels, Arn]
             Next: DeployModels
-            InputPath: "$.aggregateFileKey"
+            InputPath: "$"
+            ResultPath: null
           DeployModels:
             Type: Task
             Resource:
               Fn::GetAtt: [deployModels, Arn]
             Next: PredictNext7Days
+            InputPath: "$"
             ResultPath: "$.endpoints"
             Catch:
               - ErrorEquals: [ "States.ALL" ]
@@ -132,6 +134,12 @@ stepFunctions:
             Resource:
               Fn::GetAtt: [cleanUpPredictionResources, Arn]
             End: true
+      events:
+        - schedule:
+            name: WeeklyPredictionsTrigger
+            description: 'Trigger Step Function to generate weekly predictions every Sunday at 2 AM UTC'
+            rate: cron(0 2 ? * SUN *)
+            enabled: true
 
 resources:
   Resources:

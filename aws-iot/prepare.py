@@ -18,9 +18,7 @@ def generate_csv_from_daily_data(event, context):
     csv_output = _convert_daily_reports_to_csv(today)
     aggregated_data_file_key = get_aggregate_dataset_file_key()
     _upload_csv_to_s3(csv_output, aggregated_data_file_key)
-    return {
-        'aggregateFileKey': aggregated_data_file_key
-    }
+    return aggregated_data_file_key
 
 
 # Finds the last 30 days of data and aggregates it into a single CSV file
