@@ -2,11 +2,15 @@ import {CartesianGrid, Label, Line, LineChart, Tooltip, XAxis, YAxis} from "rech
 import moment from "moment/moment";
 import TimeSeries from "@/types/TimeSeries";
 
+const DEFAULT_LINE_COLORS = ['#8884d8', '#82ca9d', '#ff7300', '#d6c1f4', '#ff0000', '#00ff00', '#0000ff'];
+
+//TODO: This should allow for multiple lines on the graph by having multiple yKeys
+// and then use a pre-determined list of colors to use for each line up to a max of 10?
 type TimeSeriesChartProps = {
     data: TimeSeries,
     xKey: string,
-    yKey: string,
-    predictionKey?: string,
+    yKeys: string[],
+    lineColors?: string[],
     xLabel: string,
     yLabel: string,
     height?: number,
@@ -14,6 +18,7 @@ type TimeSeriesChartProps = {
 };
 
 export const TimeSeriesChart = (props: TimeSeriesChartProps) => {
+    const {lineColors} = props;
     return (
         <LineChart
             width={props.width ? props.width : 450}
@@ -42,9 +47,14 @@ export const TimeSeriesChart = (props: TimeSeriesChartProps) => {
                 />}
             </YAxis>
             <Tooltip labelFormatter={(label) => moment(label).format('h:mm a')} />
-            <Line type="monotone" dataKey={props.yKey} stroke="#8884d8" dot={false} />
-            {props.predictionKey && props.data.hasKey(props.predictionKey) &&
-                <Line type="monotone" dataKey={props.predictionKey} stroke="#82ca9d" dot={false} />}
+            {props.yKeys.map((yKey, index) => (
+                <Line type="monotone"
+                      dataKey={yKey}
+                      stroke={lineColors && lineColors[index] ? lineColors[index] : DEFAULT_LINE_COLORS[index]}
+                      dot={false}
+                      key={yKey}
+                />
+            ))}
         </LineChart>
     );
 };

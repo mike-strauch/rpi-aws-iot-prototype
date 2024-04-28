@@ -12,4 +12,8 @@ export default class TimeSeries {
     hasKey(key: string): boolean {
         return this.dataPoints.length > 0 && this.dataPoints[0].hasOwnProperty(key);
     }
+
+    isEmpty(): boolean {
+        return this.dataPoints.length === 0;
+    }
 }

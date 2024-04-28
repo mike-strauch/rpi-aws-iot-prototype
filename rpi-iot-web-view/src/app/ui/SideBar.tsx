@@ -12,7 +12,7 @@ import {
 const SideBar = () => {
     const path: string = usePathname();
     return (
-        <Box className="w-64 min-h-screen p-5 bg-gray-800 text-white border-r-2 border-white">
+        <Box className="w-64 min-h-screen p-5 bg-gray-800 text-white">
             <Heading as="h2" size="lg" className="mb-6">
                 Raspberry Pi IoT Sensors
             </Heading>

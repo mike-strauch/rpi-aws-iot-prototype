@@ -7,8 +7,8 @@ type FormFieldCardProps = {
 };
 export const FormFieldCard = (props: FormFieldCardProps) => {
     return (
-        <div className="bg-slate-500 border-solid rounded-lg border-2 border-gray-200 p-4 text-white">
-            <label htmlFor={props.id} className="mb-2 inline-block">{props.label}</label>
+        <div className="bg-gray-500 border-none p-3 text-white">
+            <label htmlFor={props.id} className="mb-2 block">{props.label}</label>
             {props.children}
         </div>
     );

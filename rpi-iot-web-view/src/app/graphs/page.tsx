@@ -1,13 +1,27 @@
 'use client'
 
 import {useState, useEffect} from "react";
-import {Box, Center, CloseButton, Flex, Heading, IconButton, Select, SimpleGrid, Spacer} from "@chakra-ui/react";
+import moment from "moment/moment";
+import {
+    Box,
+    Center,
+    CloseButton,
+    Flex,
+    Heading,
+    IconButton,
+    List,
+    ListItem,
+    Select,
+    SimpleGrid,
+    Spacer, Table, TableContainer, Tbody, Td, Th, Thead, Tr
+} from "@chakra-ui/react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 import TimeSeries from '@/types/TimeSeries';
 import {TimeSeriesChart} from "@/app/ui/TimeSeriesChart";
 import {FormFieldCard} from "@/app/ui/FormFieldCard";
+import SectionHeading from "@/app/ui/SectionHeading";
 
 // TODO: Note this endpoint has a hardcoded device id
 // TODO: The endpoint should also not be hardcoded
@@ -16,9 +30,55 @@ const PREDICTIONS_ENDPOINT: string = 'https://uua5w5gbl8.execute-api.us-west-1.a
 
 const METRIC_TYPE_KEYS: Record<string, string> = {temperature: 'tmp', humidity: 'hum', pressure: 'pr'};
 const METRIC_TYPE_LABELS: Record<string, string> = {temperature: 'Temperature (in C)', humidity: 'Humidity (in %)', pressure: 'Pressure (in hPa)'};
+const MEASUREMENT_COLOR: string= '#8884d8';
+const PREDICTION_COLOR: string = '#ff7300';
 
 function dateToDayString(date: Date): string {
     return date.toISOString().split('T')[0];
+}
+
+function getGridColorsForMetricType(environmentalData: TimeSeries, metric_type: string): string[] {
+    const colors: string[] = [];
+    if(environmentalData.hasKey(METRIC_TYPE_KEYS[metric_type]))
+        colors.push(MEASUREMENT_COLOR);
+    if(environmentalData.hasKey(METRIC_TYPE_KEYS[metric_type] + 'Prediction'))
+        colors.push(PREDICTION_COLOR);
+
+    return colors;
+}
+
+function getDataKeysForMetricType(environmentalData: TimeSeries, metric_type: string): string[] {
+    const keys: string[] = [];
+    if(environmentalData.hasKey(METRIC_TYPE_KEYS[metric_type]))
+        keys.push(METRIC_TYPE_KEYS[metric_type]);
+
+    const predictionKey: string = METRIC_TYPE_KEYS[metric_type] + 'Prediction';
+    if(environmentalData.hasKey(predictionKey))
+        keys.push(predictionKey);
+
+    return keys;
+}
+
+function getCombinedMetrics(environmentalMetrics: TimeSeries, environmentalPredictions: TimeSeries | null): TimeSeries {
+    if(environmentalMetrics.dataPoints.length) {
+        if(environmentalPredictions && !environmentalPredictions.isEmpty())
+            return mergePredictions(environmentalMetrics, environmentalPredictions);
+        else
+            return environmentalMetrics;
+    } else if (environmentalPredictions && !environmentalPredictions.isEmpty()) {
+        return new TimeSeries(environmentalPredictions.dataPoints.map((dataPoint) => {
+            const combinedDataPoint: { [key: string]: any } = {};
+            Object.keys(dataPoint).forEach((key) => {
+                if (key === 't')
+                    combinedDataPoint[key] = dataPoint[key];
+                else
+                    combinedDataPoint[`${key}Prediction`] = dataPoint[key];
+            });
+            return combinedDataPoint;
+        }), environmentalPredictions.date);
+    }
+
+    return new TimeSeries([], null);
 }
 
 function mergePredictions(metrics: TimeSeries, predictions: TimeSeries): TimeSeries {
@@ -55,9 +115,10 @@ export default function GraphsView() {
     const [soloGraphType, setSoloGraphType] = useState('');
 
     useEffect(() => {
+        //TODO: This doesn't handle canceling the fetch if the component is unmounted
         fetch(`${METRICS_ENDPOINT}${date ? '?date=' + date : ''}`)
             .then(response => response.json())
-            .then(data => setEnvironmentalMetrics(new TimeSeries(data['entries'], date)))
+            .then(data => setEnvironmentalMetrics(data ? new TimeSeries(data['entries'], date) : new TimeSeries([], date)))
             .catch(error => {
                 console.error('Error fetching metrics data:', error);
                 setEnvironmentalMetrics(new TimeSeries([], date));
@@ -65,7 +126,7 @@ export default function GraphsView() {
 
         fetch(`${PREDICTIONS_ENDPOINT}${date ? '?date=' + date : ''}`)
             .then(response => response.json())
-            .then(data => setEnvironmentalPredictions(new TimeSeries(data['entries'], date)))
+            .then(data => setEnvironmentalPredictions(data ? new TimeSeries(data['entries'], date) : null))
             .catch(error => {
                 console.error('Error fetching predictions data:', error);
                 setEnvironmentalPredictions(null);
@@ -75,43 +136,18 @@ export default function GraphsView() {
     // This is a little weird, but we need to wait for both the metrics and predictions to be fetched before we can merge them
     // and if only the environmentalMetrics are fetched, we should still display them
     useEffect(() => {
-        if(environmentalMetrics.dataPoints.length) {
-            if(environmentalPredictions && environmentalPredictions.dataPoints.length)
-                setCombinedMetrics(mergePredictions(environmentalMetrics, environmentalPredictions));
-            else
-                setCombinedMetrics(environmentalMetrics);
-        } else if (environmentalPredictions && environmentalPredictions.dataPoints.length) {
-            setCombinedMetrics(environmentalPredictions);
-        }
+        const combinedMetrics = getCombinedMetrics(environmentalMetrics, environmentalPredictions);
+        setCombinedMetrics(combinedMetrics);
     }, [environmentalMetrics, environmentalPredictions]);
 
-
-
     return (
-        <main className="flex min-h-screen flex-col items-center p-10">
-            <div className="max-h-5 my-10">
-                <Heading as='h1' size='4xl' noOfLines={1}>
-                    Environmental Measurements Over Time
-                </Heading>
+        <main className="flex min-h-screen flex-col items-center p-10 border-none">
+            <div className="self-start max-h-5 my-5">
+                <SectionHeading>Environmental Measurements Over Time</SectionHeading>
             </div>
-            <div>
-                {!soloGraphType &&
-                    <GraphGrid
-                        onGraphClick={setSoloGraphType}
-                        environmentalData={combinedMetrics}
-                   />
-                }
-                {soloGraphType &&
-                    <SoloGraph
-                        onClose={() => setSoloGraphType('')}
-                        data={combinedMetrics}
-                        graphType={soloGraphType}
-                    />
-                }
-            </div>
-            <div className="mt-10">
-                <SimpleGrid columns={2} spacing={10}>
-                    <Box w="75%" p={4} >
+            <div className="mt-5 mb-10">
+                <SimpleGrid columns={3} spacing={40}>
+                    <Box w="100%" p={4}>
                         <FormFieldCard id={'date'} label={'Data for Date:'}>
                             <DatePicker
                                 showIcon={true}
@@ -119,18 +155,42 @@ export default function GraphsView() {
                                 name='date'
                                 selected={new Date(date + 'T00:00:00')}
                                 onChange={(date: Date | null) => setDate(dateToDayString(date ? date : new Date()))}
-                                className="text-black"
+                                className="text-black display-block"
                             />
                         </FormFieldCard>
                     </Box>
-                    <Box w="75%" p={4} >
+                    <Box w="100%" p={4}>
                         <FormFieldCard id={'device'} label={'Device:'}>
                             <Select id="device" w="100%" p={4} className="text-black">
                                 <option value="rpi3B">Raspberry Pi 3b</option>
                             </Select>
                         </FormFieldCard>
                     </Box>
+                    <Box w="100%" p={12}>
+                        <GraphLegend/>
+                    </Box>
                 </SimpleGrid>
+            </div>
+            <div>
+                {!soloGraphType &&
+                    <GraphGrid
+                        onGraphClick={setSoloGraphType}
+                        environmentalData={combinedMetrics}
+                    />
+                }
+                {soloGraphType &&
+                    <SoloGraph
+                        onClose={() => setSoloGraphType('')}
+                        environmentData={combinedMetrics}
+                        graphType={soloGraphType}
+                    />
+                }
+            </div>
+            <div className="self-start mt-5">
+                <SectionHeading>All Measurements for {combinedMetrics.date}</SectionHeading>
+            </div>
+            <div className="self-start mt-5">
+                <EnvironmentDataTable environmentalData={combinedMetrics}/>
             </div>
         </main>
     );
@@ -142,15 +202,16 @@ type GraphGridProps = {
 }
 
 function GraphGrid(props: GraphGridProps) {
+    const {environmentalData} = props;
     return <SimpleGrid columns={3} spacing={10}>
         <Box w="100%" p={4} onClick={() => props.onGraphClick('temperature')}>
             <TimeSeriesChart
                 data={props.environmentalData}
                 xKey="t"
                 xLabel="Time of Day (UTC)"
-                yKey={METRIC_TYPE_KEYS["temperature"]}
+                yKeys={getDataKeysForMetricType(environmentalData, "temperature")}
                 yLabel={METRIC_TYPE_LABELS["temperature"]}
-                predictionKey={METRIC_TYPE_KEYS["temperature"] + 'Prediction'}
+                lineColors={getGridColorsForMetricType(environmentalData, "temperature")}
                 width={350}
                 height={350}
             />
@@ -160,9 +221,9 @@ function GraphGrid(props: GraphGridProps) {
                 data={props.environmentalData}
                 xKey="t"
                 xLabel="Time of Day (UTC)"
-                yKey={METRIC_TYPE_KEYS["humidity"]}
+                yKeys={getDataKeysForMetricType(environmentalData, "humidity")}
                 yLabel={METRIC_TYPE_LABELS["humidity"]}
-                predictionKey={METRIC_TYPE_KEYS["humidity"] + 'Prediction'}
+                lineColors={getGridColorsForMetricType(environmentalData, "humidity")}
                 width={350}
                 height={350}
             />
@@ -172,9 +233,9 @@ function GraphGrid(props: GraphGridProps) {
                 data={props.environmentalData}
                 xKey="t"
                 xLabel="Time of Day (UTC)"
-                yKey={METRIC_TYPE_KEYS["pressure"]}
+                yKeys={getDataKeysForMetricType(environmentalData, "pressure")}
                 yLabel={METRIC_TYPE_LABELS["pressure"]}
-                predictionKey={METRIC_TYPE_KEYS["pressure"] + 'Prediction'}
+                lineColors={getGridColorsForMetricType(environmentalData, "pressure")}
                 width={350}
                 height={350}
             />
@@ -184,18 +245,17 @@ function GraphGrid(props: GraphGridProps) {
 
 type SoloGraphProps = {
     onClose: () => void,
-    data: TimeSeries,
-    predictions?: TimeSeries,
+    environmentData: TimeSeries,
     graphType: string
 }
 
 function SoloGraph(props: SoloGraphProps) {
-
+    const {environmentData} = props;
     return <>
         <Center>
             <div className="my-0">
-                <Heading as='h2' size='2xl' noOfLines={1}>
-                    {METRIC_TYPE_LABELS[props.graphType]} for {props.data.date}
+                <Heading as='h2' size="large" noOfLines={1}>
+                    {METRIC_TYPE_LABELS[props.graphType]} for {environmentData.date}
                 </Heading>
             </div>
         </Center>
@@ -211,17 +271,79 @@ function SoloGraph(props: SoloGraphProps) {
                 </Box>
             </Flex>
             <TimeSeriesChart
-                data={props.data}
+                data={environmentData}
                 xKey="t"
                 xLabel="Time of Day (UTC)"
-                yKey={METRIC_TYPE_KEYS[props.graphType]}
+                yKeys={getDataKeysForMetricType(environmentData, props.graphType)}
                 yLabel={METRIC_TYPE_LABELS[props.graphType]}
-                predictionKey={METRIC_TYPE_KEYS[props.graphType] + 'Prediction'}
+                lineColors={getGridColorsForMetricType(environmentData, props.graphType)}
                 width={750}
                 height={400}
             />
         </Box>
     </>;
 }
+
+function GraphLegend() {
+    return <Flex as="nav" align="center" justify="start" p={4} bg="gray.100">
+            <List className="leading-8 pl-8">
+                <ListItem>
+                    <div style={{
+                        display: 'inline-block',
+                        width: "50px",
+                        height: '1px',
+                        backgroundColor: `${MEASUREMENT_COLOR}`,
+                        verticalAlign: "middle"
+                    }}/>
+                    <div className="inline-block ml-5">Actual Measurement</div>
+                </ListItem>
+                <ListItem>
+                    <div style={{
+                        display: 'inline-block',
+                        width: "50px",
+                        height: '1px',
+                        backgroundColor: `${PREDICTION_COLOR}`,
+                        verticalAlign: "middle"
+                    }}/>
+                    <div className="inline-block ml-5">Prediction</div>
+                </ListItem>
+            </List>
+        </Flex>;
+}
+
+type EnvironmentDataTableProps = {
+    environmentalData: TimeSeries
+}
+
+function EnvironmentDataTable(props: EnvironmentDataTableProps) {
+    const tablePaddingX = 28;
+    const tablePaddingY = 8;
+    return <Box p="6" boxShadow="base">
+            <TableContainer className="mt-2" maxHeight="300px" overflowY="scroll">
+                <Table variant="simple" className="border-2">
+                    <Thead className="bg-gray-500 border-none p-3 text-white">
+                        <Tr py={20}>
+                            <Th px={tablePaddingX} py={tablePaddingY}>Time (UTC)</Th>
+                            <Th px={tablePaddingX} py={tablePaddingY}>Temperature</Th>
+                            <Th px={tablePaddingX} py={tablePaddingY}>Humidity</Th>
+                            <Th px={tablePaddingX} py={tablePaddingY}>Pressure</Th>
+                        </Tr>
+                    </Thead>
+                    <Tbody>
+                        {props.environmentalData.dataPoints.map((dataPoint, index) => {
+                            return <Tr py={20} key={dataPoint.t}
+                                       className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
+                                <Td px={tablePaddingX} py={tablePaddingY}>{moment(dataPoint.t).format("hh:mm")}</Td>
+                                <Td px={tablePaddingX} py={tablePaddingY}>{dataPoint.tmp} °C</Td>
+                                <Td px={tablePaddingX} py={tablePaddingY}>{dataPoint.hum}%</Td>
+                                <Td px={tablePaddingX} py={tablePaddingY}>{dataPoint.pr} hPa</Td>
+                            </Tr>
+                        })}
+                    </Tbody>
+                </Table>
+            </TableContainer>
+    </Box>
+}
+
 
 
