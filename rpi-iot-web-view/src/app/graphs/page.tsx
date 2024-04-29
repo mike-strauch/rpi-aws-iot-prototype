@@ -1,7 +1,6 @@
 'use client'
 
-import {useState, useEffect} from "react";
-import moment from "moment/moment";
+import {useEffect, useState} from "react";
 import {
     Box,
     Center,
@@ -13,7 +12,7 @@ import {
     ListItem,
     Select,
     SimpleGrid,
-    Spacer, Table, TableContainer, Tbody, Td, Th, Thead, Tr
+    Spacer
 } from "@chakra-ui/react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -22,6 +21,7 @@ import TimeSeries from '@/types/TimeSeries';
 import {TimeSeriesChart} from "@/app/ui/TimeSeriesChart";
 import {FormFieldCard} from "@/app/ui/FormFieldCard";
 import SectionHeading from "@/app/ui/SectionHeading";
+import {EnvironmentDataTable} from "@/app/graphs/EnvironmentDataTable";
 
 // TODO: Note this endpoint has a hardcoded device id
 // TODO: The endpoint should also not be hardcoded
@@ -145,9 +145,9 @@ export default function GraphsView() {
             <div className="self-start max-h-5 my-5">
                 <SectionHeading>Environmental Measurements Over Time</SectionHeading>
             </div>
-            <div className="mt-5 mb-10">
-                <SimpleGrid columns={3} spacing={40}>
-                    <Box w="100%" p={4}>
+            <div className="w-full mt-5 mb-10" >
+                <SimpleGrid columns={4} spacing={10}>
+                    <Box w="90%" p={4}>
                         <FormFieldCard id={'date'} label={'Data for Date:'}>
                             <DatePicker
                                 showIcon={true}
@@ -159,9 +159,9 @@ export default function GraphsView() {
                             />
                         </FormFieldCard>
                     </Box>
-                    <Box w="100%" p={4}>
+                    <Box w="90%" p={4}>
                         <FormFieldCard id={'device'} label={'Device:'}>
-                            <Select id="device" w="100%" p={4} className="text-black">
+                            <Select id="device" w="100%" p="0" className="text-black p-2">
                                 <option value="rpi3B">Raspberry Pi 3b</option>
                             </Select>
                         </FormFieldCard>
@@ -171,25 +171,27 @@ export default function GraphsView() {
                     </Box>
                 </SimpleGrid>
             </div>
-            <div>
-                {!soloGraphType &&
+            {!soloGraphType &&
+                <div className="w-full">
                     <GraphGrid
                         onGraphClick={setSoloGraphType}
                         environmentalData={combinedMetrics}
                     />
-                }
-                {soloGraphType &&
+                </div>
+            }
+            {soloGraphType &&
+                <div>
                     <SoloGraph
                         onClose={() => setSoloGraphType('')}
                         environmentData={combinedMetrics}
                         graphType={soloGraphType}
                     />
-                }
-            </div>
+                </div>
+            }
             <div className="self-start mt-5">
-                <SectionHeading>All Measurements for {combinedMetrics.date}</SectionHeading>
+                <SectionHeading>All Measurements</SectionHeading>
             </div>
-            <div className="self-start mt-5">
+            <div className="mt-5 w-full">
                 <EnvironmentDataTable environmentalData={combinedMetrics}/>
             </div>
         </main>
@@ -252,13 +254,6 @@ type SoloGraphProps = {
 function SoloGraph(props: SoloGraphProps) {
     const {environmentData} = props;
     return <>
-        <Center>
-            <div className="my-0">
-                <Heading as='h2' size="large" noOfLines={1}>
-                    {METRIC_TYPE_LABELS[props.graphType]} for {environmentData.date}
-                </Heading>
-            </div>
-        </Center>
         <Box w="100%" p={4}>
             <Flex>
                 <Spacer/>
@@ -290,7 +285,7 @@ function GraphLegend() {
                 <ListItem>
                     <div style={{
                         display: 'inline-block',
-                        width: "50px",
+                        width: "40px",
                         height: '1px',
                         backgroundColor: `${MEASUREMENT_COLOR}`,
                         verticalAlign: "middle"
@@ -300,7 +295,7 @@ function GraphLegend() {
                 <ListItem>
                     <div style={{
                         display: 'inline-block',
-                        width: "50px",
+                        width: "40px",
                         height: '1px',
                         backgroundColor: `${PREDICTION_COLOR}`,
                         verticalAlign: "middle"
@@ -311,39 +306,6 @@ function GraphLegend() {
         </Flex>;
 }
 
-type EnvironmentDataTableProps = {
-    environmentalData: TimeSeries
-}
-
-function EnvironmentDataTable(props: EnvironmentDataTableProps) {
-    const tablePaddingX = 28;
-    const tablePaddingY = 8;
-    return <Box p="6" boxShadow="base">
-            <TableContainer className="mt-2" maxHeight="300px" overflowY="scroll">
-                <Table variant="simple" className="border-2">
-                    <Thead className="bg-gray-500 border-none p-3 text-white">
-                        <Tr py={20}>
-                            <Th px={tablePaddingX} py={tablePaddingY}>Time (UTC)</Th>
-                            <Th px={tablePaddingX} py={tablePaddingY}>Temperature</Th>
-                            <Th px={tablePaddingX} py={tablePaddingY}>Humidity</Th>
-                            <Th px={tablePaddingX} py={tablePaddingY}>Pressure</Th>
-                        </Tr>
-                    </Thead>
-                    <Tbody>
-                        {props.environmentalData.dataPoints.map((dataPoint, index) => {
-                            return <Tr py={20} key={dataPoint.t}
-                                       className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
-                                <Td px={tablePaddingX} py={tablePaddingY}>{moment(dataPoint.t).format("hh:mm")}</Td>
-                                <Td px={tablePaddingX} py={tablePaddingY}>{dataPoint.tmp} °C</Td>
-                                <Td px={tablePaddingX} py={tablePaddingY}>{dataPoint.hum}%</Td>
-                                <Td px={tablePaddingX} py={tablePaddingY}>{dataPoint.pr} hPa</Td>
-                            </Tr>
-                        })}
-                    </Tbody>
-                </Table>
-            </TableContainer>
-    </Box>
-}
 
 
 
