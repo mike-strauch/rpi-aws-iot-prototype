@@ -6,9 +6,10 @@ import csv
 import time
 import os
 
-from data_store import load_datafile_as_json, store_file, get_aggregate_dataset_file_key
+from data_store import load_file_as_json, store_file_stream
 
 log = logging.getLogger()
+log.setLevel(logging.INFO)
 s3 = boto3.client('s3')
 
 
@@ -28,7 +29,7 @@ def _convert_daily_reports_to_csv(end_date):
     for i in range(30):
         date = end_date - datetime.timedelta(days=i)
         file_key = date.strftime("%Y-%m-%d")
-        data = load_datafile_as_json(file_key)
+        data = load_file_as_json(file_key)
         if not data or not data['entries']:
             log.debug(f"No data found for {file_key}")
             continue
@@ -36,6 +37,12 @@ def _convert_daily_reports_to_csv(end_date):
         log.info(f"Appending data from file: {file_key}")
         _convert_rows_to_csv(data['entries'], csv_writer.writerow)
     return csv_output
+
+
+def get_aggregate_dataset_file_key():
+    aggregates_folder = os.getenv('AGGREGATES_FOLDER')
+    date_today = datetime.datetime.now().strftime('%Y-%m-%d')
+    return f'{aggregates_folder}/{date_today}-aggregate-data.csv'
 
 
 def _create_csv_writer(csv_output):
@@ -58,9 +65,8 @@ def _convert_rows_to_csv(data_rows, row_callback):
 
 
 def _upload_csv_to_s3(csv_output, file_key):
-    # get output from the csv writer
     csv_output.seek(0)
-    store_file(file_key, csv_output.getvalue())
+    store_file_stream(file_key, csv_output.getvalue())
     log.info(f"File '{file_key}' stored in S3 bucket.")
 
 
@@ -96,6 +102,8 @@ def _get_training_job_params(event):
     date_today = datetime.datetime.now().strftime('%Y-%m-%d')
     training_job_name = f'{date_today}-train-models-job-{int(datetime.datetime.now().timestamp())}'
     base_s3_bucket = os.getenv('S3_BUCKET')
+    aggregates_folder = os.getenv('AGGREGATES_FOLDER')
+    sagemaker_folder = os.getenv('SAGEMAKER_FOLDER')
 
     return {
         "TrainingJobName": training_job_name,
@@ -105,14 +113,14 @@ def _get_training_job_params(event):
         },
         "HyperParameters": {
             "sagemaker_program": "train.py",
-            "sagemaker_submit_directory": f"s3://{base_s3_bucket}/sagemaker/train.tar.gz",
+            "sagemaker_submit_directory": f"s3://{base_s3_bucket}/{sagemaker_folder}/train.tar.gz",
             "sagemaker_region": "us-west-1",
             "s3_bucket": base_s3_bucket,
             "aggregate_file_key": event['aggregateFileKey']
         },
         "RoleArn": "arn:aws:iam::904381544143:role/rpi-aws-iot-prototype-dev-us-west-1-lambdaRole",
         "OutputDataConfig": {
-            "S3OutputPath": f"s3://{base_s3_bucket}/sagemaker"  # Specify your model output location
+            "S3OutputPath": f"s3://{base_s3_bucket}/{sagemaker_folder}"  # Specify your model output location
         },
         "InputDataConfig": [
             {
@@ -120,7 +128,7 @@ def _get_training_job_params(event):
                 "DataSource": {
                     "S3DataSource": {
                         "S3DataType": "S3Prefix",
-                        "S3Uri": f"s3://{base_s3_bucket}/aggregates/"
+                        "S3Uri": f"s3://{base_s3_bucket}/{aggregates_folder}/"
                     }
                 }
             }

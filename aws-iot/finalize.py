@@ -1,16 +1,26 @@
 import logging
 import boto3
 import datetime
+import os
 from predict import MODEL_TYPES
+from data_store import delete_file
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
+MODELS_FOLDER = os.getenv('MODELS_FOLDER')
 
-# TODO: This ought to take parameters to indicate which resources to clean up so that the step functions can pass in
-#  the appropriate names/ids of resources to clean up
+
+# IMPROVEMENT: This ought to take parameters to indicate which resources to clean up so that the step functions can
+# pass in the appropriate names/ids of resources to clean up rather than inferring the names based on the current date.
 def cleanup_resources(event, context):
     log.info("Cleaning up models, endpoint configs, endpoints")
+    _cleanup_inference_resources()
+    _cleanup_model_artifacts()
+    # IMPROVEMENT: Clean up aggregate data file?
+
+
+def _cleanup_inference_resources():
     sagemaker = boto3.client('sagemaker')
     date_today = datetime.datetime.now().strftime('%Y-%m-%d')
 
@@ -37,5 +47,9 @@ def cleanup_resources(event, context):
         except Exception as e:
             log.info(f"Unable to delete model {model_name}: {e}")
 
-    # TODO: Clean up model files?
-    # TODO: Clean up aggregate data file?
+
+def _cleanup_model_artifacts():
+    date_today = datetime.datetime.now().strftime('%Y-%m-%d')
+    for model_type in MODEL_TYPES:
+        model_file_key = f'{date_today}-{model_type}-model.tar.gz'
+        delete_file(model_file_key)

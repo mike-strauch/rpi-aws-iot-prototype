@@ -12,11 +12,12 @@ import json
 from io import StringIO
 import pandas as pd
 
-from data_store import load_aggregate_env_data, append_data_to_file
+from data_store import load_file_as_string, append_data_as_json
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 S3_BUCKET = os.getenv("S3_BUCKET")
+MODELS_PATH = os.getenv("MODELS_PATH")
 MODEL_TYPES = ['temperature', 'humidity', 'pressure']
 
 
@@ -42,19 +43,19 @@ def _create_model(model_type):
     model_name = f'{date_today}-{model_type}-model'
     model_file_key = f'{model_name}.tar.gz'
 
-    log.info(f'Path to model files: s3://{S3_BUCKET}/models/{model_file_key}')
+    log.info(f'Path to model files: s3://{S3_BUCKET}/{MODELS_PATH}/{model_file_key}')
 
     sagemaker = boto3.client('sagemaker')
     sagemaker.create_model(
         ModelName=model_name,
         PrimaryContainer={
             'Image': '746614075791.dkr.ecr.us-west-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3',
-            'ModelDataUrl': f's3://{S3_BUCKET}/models/{model_file_key}',
+            'ModelDataUrl': f's3://{S3_BUCKET}/{MODELS_PATH}/{model_file_key}',
             'Environment': {
                 'MODEL_FILE_NAME': f'{model_name}.pkl',
                 'SAGEMAKER_PROGRAM': 'script.py',
                 'SAGEMAKER_REGION': 'us-west-1',
-                'SAGEMAKER_SUBMIT_DIRECTORY': f's3://{S3_BUCKET}/models/{model_file_key}'
+                'SAGEMAKER_SUBMIT_DIRECTORY': f's3://{S3_BUCKET}/{MODELS_PATH}/{model_file_key}'
             }
         },
 
@@ -154,16 +155,13 @@ def _wait_for_endpoint_creation(endpoint_name):
     return False
 
 
-
-
-
 def predict_daily_atmospheric_metrics(event, context):
     if 'aggregateFileKey' not in event:
         raise ValueError('No aggregate file key was provided, aborting')
     if 'endpoints' not in event:
         raise ValueError('No model endpoint names were provided, aborting')
 
-    aggregate_data = load_aggregate_env_data(event['aggregateFileKey'])
+    aggregate_data = load_file_as_string(event['aggregateFileKey'])
     aggregate_data_df = pd.read_csv(StringIO(aggregate_data))
     metric_averages_by_time_of_day = _get_averages_by_time_of_day(aggregate_data_df)
 
@@ -172,7 +170,8 @@ def predict_daily_atmospheric_metrics(event, context):
         predictions_for_day = []
         timestamp_today_offset_by_days = int(datetime.datetime.now().timestamp()) + (i * 24 * 60 * 60)
 
-        #  TODO: I can send a whole day's worth of predictions in one request by sending a 2D array of data
+        #  IMPROVEMENT: I can send a whole day's worth of predictions in one request by sending a 2D array of data
+        #  instead of sending a request for each 10 minute interval.
         seconds_per_day = 24 * 60 * 60
         seconds_per_10_min = 10 * 60
         for time_of_day_seconds in range(0, seconds_per_day, seconds_per_10_min):  # seconds / day, seconds / 10 minutes
@@ -242,7 +241,7 @@ def _store_predictions_for_day(predictions, date):
     file_key = f'{date}-predictions'
     log.info(f'Saving {len(predictions)} predictions to file with key {file_key}')
     try:
-        append_data_to_file(predictions, file_key)
+        append_data_as_json(predictions, file_key)
     except Exception as e:
         log.error(f"An error occurred while storing predictions in file with key {file_key}: {e}")
 

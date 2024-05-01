@@ -44,6 +44,7 @@ functions:
     memorySize: 256
     environment:
       S3_BUCKET: rpi-atmospheric-data
+      AGGREGATES_FOLDER: aggregates
     events:
       - http:
           path: /devices/{deviceId}/metrics
@@ -64,18 +65,22 @@ functions:
     memorySize: 512
     environment:
       S3_BUCKET: rpi-atmospheric-data
+      AGGREGATES_FOLDER: aggregates
   trainModels:
     handler: prepare.train_models
     memorySize: 256
     timeout: 360
     environment:
       S3_BUCKET: rpi-atmospheric-data
+      AGGREGATES_FOLDER: aggregates
+      SAGEMAKER_FOLDER: sagemaker
   deployModels:
     handler: predict.deploy_models
     memorySize: 256
     timeout: 360
     environment:
       S3_BUCKET: rpi-atmospheric-data
+      MODELS_PATH: models
   predictDailyAtmosphericMetrics:
     handler: predict.predict_daily_atmospheric_metrics
     memorySize: 256
@@ -88,6 +93,7 @@ functions:
     timeout: 180
     environment:
       S3_BUCKET: rpi-atmospheric-data
+      MODELS_FOLDER: models
 
 
 stepFunctions:

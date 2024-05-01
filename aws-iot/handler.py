@@ -5,7 +5,7 @@ import re
 import boto3
 from datetime import datetime
 
-from data_store import load_datafile_as_json, append_data_to_file
+from data_store import load_file_as_json, append_data_as_json
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -40,14 +40,14 @@ def data_appender(event, context):
     file_key = datetime.now().strftime("%Y-%m-%d")
     logger.debug(f'Appending {len(data_points)} data points to file with key {file_key}')
     try:
-        append_data_to_file(data_points, file_key)
+        append_data_as_json(data_points, file_key)
     except Exception as e:
         print(f"An error occurred while appending data to file with key {file_key}: {e}")
 
 
 # HTTP accessible Lambda Functions
 def fetch_metrics(event, context):
-    # TODO: This function now receives a deviceId parameter when called which can be used to retrieve
+    # IMPROVEMENT: This function now receives a deviceId parameter when called which can be used to retrieve
     # data for a specific device.
     logger.debug('Got a fetch_data event')
     query_string_params = event.get('queryStringParameters', {})
@@ -59,7 +59,7 @@ def fetch_metrics(event, context):
 
 
 def fetch_predictions(event, context):
-    # TODO: This function now receives a deviceId parameter when called which can be used to retrieve
+    # IMPROVEMENT: This function now receives a deviceId parameter when called which can be used to retrieve
     # data for a specific device.
     logger.debug('Got a fetch_predictions event')
     query_string_params = event.get('queryStringParameters', {})
@@ -75,7 +75,7 @@ def _fetch_metrics_for_date(date_str):
     file_key = date_str or datetime.now().strftime("%Y-%m-%d")
     logger.debug(f'Fetching data for file with key {file_key}')
     try:
-        json_data = load_datafile_as_json(file_key)
+        json_data = load_file_as_json(file_key)
         logger.debug(f"File \'{file_key}\' fetched {'successfully' if json_data else 'unsuccessfully'}.")
         return _default_cors_response(200, json_data)
 
@@ -89,7 +89,7 @@ def _fetch_predictions_for_date(date_str):
     file_key = (date_str or datetime.now().strftime("%Y-%m-%d")) + '-predictions'
     logger.debug(f'Fetching data for file with key {file_key}')
     try:
-        json_data = load_datafile_as_json(file_key)
+        json_data = load_file_as_json(file_key)
         logger.debug(f"File \'{file_key}\' fetched {'successfully' if json_data else 'unsuccessfully'}.")
         return _default_cors_response(200, json_data)
 
