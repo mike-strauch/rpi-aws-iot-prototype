@@ -1,6 +1,7 @@
 import {Table, TableContainer, Tbody, Td, Th, Thead, Tr} from "@chakra-ui/react";
 import moment from "moment";
 import TimeSeries from "@/types/TimeSeries";
+import {forwardRef, Ref, ReactNode} from "react";
 
 function roundToDecimals(value: number, places: number): number {
     const factor = Math.pow(10, places);
@@ -19,7 +20,7 @@ type PredictedDataPointProps = {
     unit: string
 }
 
-function PredictedDataPoint (props: PredictedDataPointProps): JSX.Element {
+function PredictedDataPoint (props: PredictedDataPointProps): ReactNode {
     const {dataPoint, dataKey, predictionKey, unit} = props;
     const dataValue = dataPoint[dataKey];
     const predictionValue = dataPoint[predictionKey];
@@ -41,10 +42,12 @@ type EnvironmentDataTableProps = {
     environmentalData: TimeSeries
 }
 
-export function EnvironmentDataTable(props: EnvironmentDataTableProps) {
+// Must use forwardRef to pass ref to the underlying HTMLTableElement as refs are not supported by default for function
+// components. "Normally" you would use the ref inside the same component that creates the ref.
+export const EnvironmentDataTable = forwardRef((props: EnvironmentDataTableProps, ref: Ref<HTMLTableElement>) => {
     const tablePaddingX = 40;
     const tablePaddingY = 8;
-    return <TableContainer className="mt-2" maxHeight="500px" overflowY="scroll">
+    return <TableContainer ref={ref} className="mt-2" maxHeight="500px" overflowY="auto">
         <Table variant="simple" className="border-2 border-b-gray-400" width="100%">
             <Thead className="bg-gray-500 border-b border-b-black p-3 text-white" position="sticky" zIndex="sticky" top="0">
                 <Tr py={20}>
@@ -74,5 +77,7 @@ export function EnvironmentDataTable(props: EnvironmentDataTableProps) {
             </Tbody>
         </Table>
     </TableContainer>;
+});
 
-}
+// Required for React DevTools when using a forwardRef
+EnvironmentDataTable.displayName= 'EnvironmentDataTable';

@@ -1,12 +1,10 @@
 'use client'
 
-import {useEffect, useState} from "react";
+import {useEffect, useState, useRef} from "react";
 import {
     Box,
-    Center,
     CloseButton,
     Flex,
-    Heading,
     IconButton,
     List,
     ListItem,
@@ -24,9 +22,8 @@ import SectionHeading from "@/app/ui/SectionHeading";
 import {EnvironmentDataTable} from "@/app/graphs/EnvironmentDataTable";
 
 // TODO: Note this endpoint has a hardcoded device id
-// TODO: The endpoint should also not be hardcoded
-const METRICS_ENDPOINT: string = 'https://uua5w5gbl8.execute-api.us-west-1.amazonaws.com/dev/devices/1/metrics';
-const PREDICTIONS_ENDPOINT: string = 'https://uua5w5gbl8.execute-api.us-west-1.amazonaws.com/dev/devices/1/predictions';
+const METRICS_ENDPOINT: string = `${process.env.NEXT_PUBLIC_API_ENDPOINT}/devices/1/metrics`;
+const PREDICTIONS_ENDPOINT: string = `${process.env.NEXT_PUBLIC_API_ENDPOINT}/devices/1/predictions`;
 
 const METRIC_TYPE_KEYS: Record<string, string> = {temperature: 'tmp', humidity: 'hum', pressure: 'pr'};
 const METRIC_TYPE_LABELS: Record<string, string> = {temperature: 'Temperature (in C)', humidity: 'Humidity (in %)', pressure: 'Pressure (in hPa)'};
@@ -66,16 +63,7 @@ function getCombinedMetrics(environmentalMetrics: TimeSeries, environmentalPredi
         else
             return environmentalMetrics;
     } else if (environmentalPredictions && !environmentalPredictions.isEmpty()) {
-        return new TimeSeries(environmentalPredictions.dataPoints.map((dataPoint) => {
-            const combinedDataPoint: { [key: string]: any } = {};
-            Object.keys(dataPoint).forEach((key) => {
-                if (key === 't')
-                    combinedDataPoint[key] = dataPoint[key];
-                else
-                    combinedDataPoint[`${key}Prediction`] = dataPoint[key];
-            });
-            return combinedDataPoint;
-        }), environmentalPredictions.date);
+        return convertMeasurementsToPredictions(environmentalPredictions);
     }
 
     return new TimeSeries([], null);
@@ -88,7 +76,6 @@ function mergePredictions(metrics: TimeSeries, predictions: TimeSeries): TimeSer
     if(metrics.dataPoints.length != predictions.dataPoints.length)
         console.warn("Metrics and Predictions data points do not match in length. This can cause weird behavior.");
 
-    //TODO: Put this in TimeSeries.ts?
     const mergedDataPoints = metrics.dataPoints.map((metricDataPoint, index) => {
         // TODO: This assumes that there is data for each metric type which in reality may not be the case
         // TODO: It also assumes that the timeseries have the exact same number of entries
@@ -107,34 +94,77 @@ function mergePredictions(metrics: TimeSeries, predictions: TimeSeries): TimeSer
     return new TimeSeries(mergedDataPoints, metrics.date);
 }
 
+function convertMeasurementsToPredictions(environmentalPredictions: TimeSeries) {
+    return new TimeSeries(environmentalPredictions.dataPoints.map((dataPoint) => {
+        const combinedDataPoint: { [key: string]: any } = {};
+        Object.keys(dataPoint).forEach((key) => {
+            if (key === 't')
+                combinedDataPoint[key] = dataPoint[key];
+            else
+                combinedDataPoint[`${key}Prediction`] = dataPoint[key];
+        });
+        return combinedDataPoint;
+    }), environmentalPredictions.date);
+}
+
+async function fetchMeasurements(date: string, abortController: AbortController): Promise<TimeSeries> {
+    const metricsUrl = date ? `${METRICS_ENDPOINT}?date=${date}` : METRICS_ENDPOINT;
+
+    try {
+        const response = await fetch(metricsUrl, {signal: abortController.signal});
+        const json = await response.json();
+        const entries = json?.entries ?? [];
+        return new TimeSeries(entries, date);
+    } catch (error) {
+        console.error('Error fetching metrics data:', error);
+        return new TimeSeries([], date);
+    }
+}
+
+async function fetchPredictions(date: string, abortController: AbortController): Promise<TimeSeries | null> {
+    const predictionsUrl = date ? `${PREDICTIONS_ENDPOINT}?date=${date}` : PREDICTIONS_ENDPOINT;
+
+    try {
+        const response = await fetch(predictionsUrl, {signal: abortController.signal});
+        const json = await response.json();
+        return json ? new TimeSeries(json['entries'], date) : null;
+    } catch (error) {
+        console.error('Error fetching predictions data:', error);
+        return null;
+    }
+}
+
 export default function GraphsView() {
-    const [date, setDate] = useState(dateToDayString(new Date()));
-    const [combinedMetrics, setCombinedMetrics] = useState(new TimeSeries([], date));
-    const [environmentalMetrics, setEnvironmentalMetrics] = useState(new TimeSeries([], date));
-    const [environmentalPredictions, setEnvironmentalPredictions] = useState(null as unknown as TimeSeries | null);
-    const [soloGraphType, setSoloGraphType] = useState('');
+    const [date, setDate] = useState<string>(dateToDayString(new Date()));
+    const [combinedMetrics, setCombinedMetrics] = useState<TimeSeries>(new TimeSeries([], date));
+    const [environmentalMetrics, setEnvironmentalMetrics] = useState<TimeSeries>(new TimeSeries([], date));
+    const [environmentalPredictions, setEnvironmentalPredictions] = useState<TimeSeries | null>(null);
+    const [soloGraphType, setSoloGraphType] = useState<string>('');
+    const dataTableRef = useRef<HTMLTableElement>(null);
 
     useEffect(() => {
-        //TODO: This doesn't handle canceling the fetch if the component is unmounted
-        fetch(`${METRICS_ENDPOINT}${date ? '?date=' + date : ''}`)
-            .then(response => response.json())
-            .then(data => setEnvironmentalMetrics(data ? new TimeSeries(data['entries'], date) : new TimeSeries([], date)))
-            .catch(error => {
-                console.error('Error fetching metrics data:', error);
-                setEnvironmentalMetrics(new TimeSeries([], date));
-            });
+        // ensures the table is scrolled to the top when the date changes
+        if (dataTableRef.current)
+            dataTableRef.current.scrollTop = 0;
 
-        fetch(`${PREDICTIONS_ENDPOINT}${date ? '?date=' + date : ''}`)
-            .then(response => response.json())
-            .then(data => setEnvironmentalPredictions(data ? new TimeSeries(data['entries'], date) : null))
-            .catch(error => {
-                console.error('Error fetching predictions data:', error);
-                setEnvironmentalPredictions(null);
-            });
-        }, [date]);
+        const abortController = new AbortController();
 
-    // This is a little weird, but we need to wait for both the metrics and predictions to be fetched before we can merge them
-    // and if only the environmentalMetrics are fetched, we should still display them
+        const fetchData = async () => {
+            const measurements = await fetchMeasurements(date, abortController);
+            setEnvironmentalMetrics(measurements);
+            const predictions = await fetchPredictions(date, abortController);
+            setEnvironmentalPredictions(predictions);
+        };
+
+        fetchData();
+
+        return () => {
+            abortController.abort('unmounting graphs view');
+        }
+    }, [date]);
+
+    // This is a little weird, but we need to wait for both the metrics and predictions to be fetched before we can
+    // combine them, and if only the environmentalMetrics are fetched, we should still display them
     useEffect(() => {
         const combinedMetrics = getCombinedMetrics(environmentalMetrics, environmentalPredictions);
         setCombinedMetrics(combinedMetrics);
@@ -192,7 +222,7 @@ export default function GraphsView() {
                 <SectionHeading>All Measurements</SectionHeading>
             </div>
             <div className="mt-5 w-full">
-                <EnvironmentDataTable environmentalData={combinedMetrics}/>
+                <EnvironmentDataTable environmentalData={combinedMetrics} ref={dataTableRef}/>
             </div>
         </main>
     );
