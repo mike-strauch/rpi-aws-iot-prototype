@@ -2,6 +2,7 @@ import {Table, TableContainer, Tbody, Td, Th, Thead, Tr} from "@chakra-ui/react"
 import moment from "moment";
 import TimeSeries from "@/types/TimeSeries";
 import {forwardRef, Ref, ReactNode} from "react";
+import EnvironmentMetrics from "@/types/EnvironmentMetrics";
 
 function roundToDecimals(value: number, places: number): number {
     const factor = Math.pow(10, places);
@@ -39,7 +40,7 @@ function PredictedDataPoint (props: PredictedDataPointProps): ReactNode {
 }
 
 type EnvironmentDataTableProps = {
-    environmentalData: TimeSeries
+    environmentalData: EnvironmentMetrics
 }
 
 // Must use forwardRef to pass ref to the underlying HTMLTableElement as refs are not supported by default for function
@@ -58,7 +59,7 @@ export const EnvironmentDataTable = forwardRef((props: EnvironmentDataTableProps
                 </Tr>
             </Thead>
             <Tbody>
-                {props.environmentalData.dataPoints.map((dataPoint, index) => {
+                {props.environmentalData.getDataSet().map((dataPoint, index) => {
                     return <Tr py={20} key={dataPoint.t} className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
                         <Td align="left" px={tablePaddingX} py={tablePaddingY}>
                             {moment(dataPoint.t).format("hh:mm")}
