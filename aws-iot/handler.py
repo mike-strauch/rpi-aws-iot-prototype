@@ -73,20 +73,16 @@ def fetch_predictions(event, context):
 def _fetch_metrics_for_date(date_str):
     # default to today's date if date provided is empty which is different from it being invalid
     file_key = date_str or datetime.now().strftime("%Y-%m-%d")
-    logger.debug(f'Fetching data for file with key {file_key}')
-    try:
-        json_data = load_file_as_json(file_key)
-        logger.debug(f"File \'{file_key}\' fetched {'successfully' if json_data else 'unsuccessfully'}.")
-        return _default_cors_response(200, json_data)
-
-    except Exception as e:
-        logger.error(f"An error occurred while fetching file with key {file_key}: {e}")
-        return _default_cors_response(500, str(e))
+    return fetch_metrics_from_file(file_key)
 
 
 def _fetch_predictions_for_date(date_str):
     # default to today's date if date provided is empty which is different from it being invalid
     file_key = (date_str or datetime.now().strftime("%Y-%m-%d")) + '-predictions'
+    return fetch_metrics_from_file(file_key)
+
+
+def fetch_metrics_from_file(file_key):
     logger.debug(f'Fetching data for file with key {file_key}')
     try:
         json_data = load_file_as_json(file_key)
