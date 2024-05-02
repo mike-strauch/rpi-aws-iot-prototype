@@ -18,12 +18,15 @@ type TimeSeriesChartProps = {
 };
 
 export const TimeSeriesChart = (props: TimeSeriesChartProps) => {
-    const {lineColors} = props;
+    const {lineColors, data, width, height} = props;
+    if (!data.dataPoints || data.dataPoints.length === 0)
+        return <div className="text-center bg-gray-300 border pt-40" style={{height: height, width: width}}>No data available</div>
+
     return (
         <LineChart
-            width={props.width ? props.width : 450}
-            height={props.height ? props.height : 450}
-            data={props.data.dataPoints}
+            width={width ? width : 450}
+            height={height ? height : 450}
+            data={data.dataPoints}
             margin={{ top: 5, right: 30, left: 20, bottom: 55 }}
         >
             <CartesianGrid strokeDasharray="3 3" />

@@ -1,6 +1,5 @@
 import {Table, TableContainer, Tbody, Td, Th, Thead, Tr} from "@chakra-ui/react";
 import moment from "moment";
-import TimeSeries from "@/types/TimeSeries";
 import {forwardRef, Ref, ReactNode} from "react";
 import EnvironmentMetrics from "@/types/EnvironmentMetrics";
 
@@ -36,7 +35,6 @@ function PredictedDataPoint (props: PredictedDataPointProps): ReactNode {
             </span>
         </>
     );
-
 }
 
 type EnvironmentDataTableProps = {
@@ -48,6 +46,9 @@ type EnvironmentDataTableProps = {
 export const EnvironmentDataTable = forwardRef((props: EnvironmentDataTableProps, ref: Ref<HTMLTableElement>) => {
     const tablePaddingX = 40;
     const tablePaddingY = 8;
+    const {environmentalData} = props;
+    const dataSet = environmentalData.getDataSet();
+
     return <TableContainer ref={ref} className="mt-2" maxHeight="500px" overflowY="auto">
         <Table variant="simple" className="border-2 border-b-gray-400" width="100%">
             <Thead className="bg-gray-500 border-b border-b-black p-3 text-white" position="sticky" zIndex="sticky" top="0">
@@ -59,7 +60,11 @@ export const EnvironmentDataTable = forwardRef((props: EnvironmentDataTableProps
                 </Tr>
             </Thead>
             <Tbody>
-                {props.environmentalData.getDataSet().map((dataPoint, index) => {
+                {dataSet.length === 0 &&
+                    <Tr py={20} height={40} className="bg-blue-50">
+                        <Td colSpan={4} align="center">No data available</Td>
+                    </Tr>}
+                {dataSet.map((dataPoint, index) => {
                     return <Tr py={20} key={dataPoint.t} className={index % 2 === 0 ? "bg-blue-50" : "bg-white"}>
                         <Td align="left" px={tablePaddingX} py={tablePaddingY}>
                             {moment(dataPoint.t).format("hh:mm")}

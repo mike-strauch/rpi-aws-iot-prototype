@@ -1,6 +1,5 @@
 import TimeSeries from "@/types/TimeSeries";
 
-
 /**
  * Encapsulates the logic for managing and combining environmental measurements and predictions
  */
@@ -8,9 +7,15 @@ export default class EnvironmentMetrics {
     combinedMetrics?: TimeSeries | null;
     static METRIC_TYPE_KEYS: Record<string, string> = {temperature: 'tmp', humidity: 'hum', pressure: 'pr'};
     static METRIC_TYPE_LABELS: Record<string, string> = {temperature: 'Temperature (in C)', humidity: 'Humidity (in %)', pressure: 'Pressure (in hPa)'};
+    //TODO: I dont' like these here.
     static MEASUREMENT_COLOR: string= '#8884d8';
     static PREDICTION_COLOR: string = '#ff7300';
 
+    /**
+     * Gets a list of all available data keys for a particular metric. This helps when determining what data to display
+     * for the given metric.
+     * @param metric_type
+     */
     public getDataKeysForMetricType(metric_type: string): string[] {
         const keys: string[] = [];
         if(!this.combinedMetrics)
@@ -48,6 +53,16 @@ export default class EnvironmentMetrics {
         return this.combinedMetrics ? this.combinedMetrics.dataPoints : [];
     }
 
+    /**
+     * Combines the two TimeSeries objects into a single one.
+     *
+     * If there are measurements but no predictions, then the combined data set only contains the measurements.
+     * If there are measurements and predictions, then the data is merged into a single TimeSeries object where
+     * predictions have had their keys modified.
+     * If there are only predictions then the prediction data is given new keys to indicate it is prediction data.
+     * @param measurements
+     * @param predictions
+     */
     public combineMetrics(measurements: TimeSeries, predictions: TimeSeries | null){
         if (measurements.dataPoints.length) {
             if (predictions && !predictions.isEmpty())
@@ -63,55 +78,61 @@ export default class EnvironmentMetrics {
     /**
      * Takes a set of metrics and predictions in TimeSeries form and consolidates them into a single TimeSeries with
      * their own unique keys in the newly created TimeSeries.
-     * @param metrics
+     * @param measurements
      * @param predictions
      * @private
      */
-    private mergePredictions(metrics: TimeSeries, predictions: TimeSeries): TimeSeries {
+    private mergePredictions(measurements: TimeSeries, predictions: TimeSeries): TimeSeries {
+        // IMPROVEMENT: Might be better to always return a new object to avoid clobbering the original data.
         if (!predictions)
-            return metrics;
+            return measurements;
 
-        if (metrics.dataPoints.length != predictions.dataPoints.length)
+        if (measurements.dataPoints.length != predictions.dataPoints.length)
             console.warn("Metrics and Predictions data points do not match in length. " +
                 "This can cause weird behavior. This can happen when looking at today's data because a full set of " +
                 "predictions has been made but the day's measurements have not been completed because the day is still going");
 
-        const mergedDataPoints = metrics.dataPoints.map((metricDataPoint, index) => {
+        const mergedDataPoints = measurements.dataPoints.map((measurementDataPoint, index) => {
             // TODO: This assumes that there is data for each metric type which in reality may not be the case
             // TODO: It also assumes that the timeseries have the exact same number of entries
             const mergedRow: { [key: string]: any } = {
-                ...metricDataPoint,
-                ...(Object.keys(predictions.dataPoints[index]).reduce((newPrediction: {
-                    [key: string]: any
-                }, key: string) => {
-                    if (key !== 't')
-                        newPrediction[`${key}Prediction`] = predictions.dataPoints[index][key];
-                    return newPrediction;
-                }, {}))
+                ...measurementDataPoint,
+                ...(this.migrateToPredictionKeys(predictions.dataPoints[index]))
             };
 
             return mergedRow;
         });
 
-        return new TimeSeries(mergedDataPoints, metrics.date);
+        return new TimeSeries(mergedDataPoints, measurements.date);
     }
 
     /**
-     * Takes the input data and coverts it over to "predictions" but migrating the key of each data point appropriately
-     * so that it can be displayed properly in the UI.
-     * @param environmentalPredictions
+     * Migrates the data in predictionEntry so that it uses prediction keys rather than the original keys. Prediction
+     * keys are essentially just the original key concatenated with 'Prediction'. The 't' key is ignored as it does not
+     * correspond to a predictable value.
+     * @param predictionEntry
      * @private
      */
-    private convertMeasurementsToPredictions(environmentalPredictions: TimeSeries) {
-        return new TimeSeries(environmentalPredictions.dataPoints.map((dataPoint) => {
-            const combinedDataPoint: { [key: string]: any } = {};
-            Object.keys(dataPoint).forEach((key) => {
-                if (key === 't')
-                    combinedDataPoint[key] = dataPoint[key];
-                else
-                    combinedDataPoint[`${key}Prediction`] = dataPoint[key];
-            });
+    private migrateToPredictionKeys(predictionEntry: {[key:string]: any}): {} {
+        return Object.keys(predictionEntry).reduce((newPrediction: {
+            [key: string]: any
+        }, key: string) => {
+            if (key !== 't')
+                newPrediction[`${key}Prediction`] = predictionEntry[key];
+            return newPrediction;
+        }, {});
+    }
+
+    /**
+     * Takes the input TimeSeries and converts the schema so that it uses prediction keys rather than measurement keys.
+     * @param predictions
+     * @private
+     */
+    private convertMeasurementsToPredictions(predictions: TimeSeries) {
+        return new TimeSeries(predictions.dataPoints.map((dataPoint) => {
+            const combinedDataPoint: { [key: string]: any } = this.migrateToPredictionKeys(dataPoint);
+            combinedDataPoint['t'] = dataPoint['t'];
             return combinedDataPoint;
-        }), environmentalPredictions.date);
+        }), predictions.date);
     }
 }
