@@ -14,7 +14,8 @@ type TimeSeriesChartProps = {
     xLabel: string,
     yLabel: string,
     height?: number,
-    width?: number
+    width?: number,
+    cursor?: string
 };
 
 export const TimeSeriesChart = (props: TimeSeriesChartProps) => {
@@ -28,6 +29,8 @@ export const TimeSeriesChart = (props: TimeSeriesChartProps) => {
             height={height ? height : 450}
             data={data.dataPoints}
             margin={{ top: 5, right: 30, left: 20, bottom: 55 }}
+            className="bg-gray-100 border border-gray-300 drop-shadow-md pt-10 pb-0 px-0"
+            style={{cursor: props.cursor ? props.cursor : 'default'}}
         >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
@@ -44,7 +47,7 @@ export const TimeSeriesChart = (props: TimeSeriesChartProps) => {
                 {props.yLabel && <Label
                     angle={-90}
                     position='insideLeft'
-                    offset={-10}
+                    offset={-5}
                     value={props.yLabel}
                     dy={60}
                 />}

@@ -49,8 +49,8 @@ export const EnvironmentDataTable = forwardRef((props: EnvironmentDataTableProps
     const {environmentalData} = props;
     const dataSet = environmentalData.getDataSet();
 
-    return <TableContainer ref={ref} className="mt-2" maxHeight="500px" overflowY="auto">
-        <Table variant="simple" className="border-2 border-b-gray-400" width="100%">
+    return <TableContainer ref={ref} className="mt-2 drop-shadow-md" maxHeight="500px" overflowY="auto">
+        <Table variant="simple" className="" width="100%">
             <Thead className="bg-gray-500 border-b border-b-black p-3 text-white" position="sticky" zIndex="sticky" top="0">
                 <Tr py={20}>
                     <Th align="left" px={tablePaddingX} py={tablePaddingY}>Time (UTC)</Th>
