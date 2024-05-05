@@ -13,9 +13,12 @@ import SideBarLink from "@/app/ui/SideBarLink";
 
 const SideBar = () => {
     return (
-        <Box className="w-64 min-h-screen p-5 bg-gray-800 text-white">
-            <Heading as="h2" size="lg" className="mb-6 text-xl">
+        <Box className="w-56 min-h-screen p-5 bg-gray-800 text-white border-r-8 border-r-white">
+            <Heading as="h2" size="lg" className="mb-6 text-xl hidden lg:block">
                 Raspberry Pi IoT
+            </Heading>
+            <Heading as="h2" size="lg" className="mb-6 text-xl lg:hidden">
+                RPi IoT
             </Heading>
             <VStack align="stretch" spacing={5} className="ml-2">
                 <SideBarLink href='/' icon={FaHouseChimney} label="Home"/>

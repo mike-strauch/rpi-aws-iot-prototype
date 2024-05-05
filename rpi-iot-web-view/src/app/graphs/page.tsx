@@ -6,8 +6,7 @@ import {
     Flex,
     List,
     ListItem,
-    Select,
-    SimpleGrid
+    Select
 } from "@chakra-ui/react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -112,12 +111,12 @@ export default function GraphsView() {
 
     return (
         <main className="flex min-h-screen flex-col items-center p-10 border-none">
-            <div className="self-start max-h-5 my-5">
+            <div className="self-start max-h-5 mb-5 mt-0">
                 <SectionHeading>Environmental Measurements Over Time</SectionHeading>
             </div>
             <div className="w-full my-5" >
-                <SimpleGrid columns={4} spacing={10}>
-                    <Box w="90%" p={4}>
+                <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-4">
+                    <Box p={4} className="w-72 md:w-64">
                         {/* This element prevents the datepicker overlay from being obscured by the FormFieldCard which has a drop shadow */}
                         <div id="date-picker-portal" className="z-50"/>
                         <FormFieldCard id={'date'} label={'Data for Date:'}>
@@ -132,17 +131,17 @@ export default function GraphsView() {
                             />
                         </FormFieldCard>
                     </Box>
-                    <Box w="90%" p={4}>
+                    <Box p={4} className="w-72 md:w-64">
                         <FormFieldCard id={'device'} label={'Device:'}>
-                            <Select id="device" w="100%" p="0" className="text-black p-2" icon={<Box />}> {/* This hides the icon because there is a double icon going on */}
+                            <Select id="device" w="100%" p="0" className="text-black p-2 w-full" icon={<Box />}> {/* This hides the icon because there is a double icon going on */}
                                 <option value="rpi3B">Raspberry Pi 3b</option>
                             </Select>
                         </FormFieldCard>
                     </Box>
-                    <Box w="100%" p={12}>
+                    <Box w="100%" p={12} className="sm:w-64">
                         <GraphLegend/>
                     </Box>
-                </SimpleGrid>
+                </div>
             </div>
             {!soloGraphType &&
                 <div className="w-full">
@@ -165,7 +164,7 @@ export default function GraphsView() {
             <div className="self-start mt-5">
                 <SectionHeading>All Measurements</SectionHeading>
             </div>
-            <div className="mt-5 w-full">
+            <div className="mt-5 w-96 md:w-full">
                 <EnvironmentDataTable environmentalData={environmentMetrics} ref={dataTableRef}/>
             </div>
         </main>
@@ -180,25 +179,25 @@ type GraphGridProps = {
 function GraphGrid(props: GraphGridProps) {
     const {environmentalData} = props;
     const metricTypes = Object.keys(EnvironmentMetrics.METRIC_TYPE_KEYS);
-    return <SimpleGrid columns={metricTypes.length} spacing={0}>
+    return <div className={`grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-4`}>
         {metricTypes.map((metricType, index) => {
-                return <Box w="100%" p={2} key={index} onClick={() => props.onGraphClick(metricType)}>
-                    <TimeSeriesChart
-                        data={environmentalData.getCombinedMetrics()}
-                        xKey="t"
-                        xLabel="Time of Day (UTC)"
-                        yKeys={environmentalData.getDataKeysForMetricType(metricType)}
-                        yLabel={EnvironmentMetrics.METRIC_TYPE_LABELS[metricType]}
-                        lineColors={environmentalData.getGridColorsForMetricType(metricType)}
-                        width={350}
-                        height={350}
-                        cursor="zoom-in"
-                    />
-                </Box>
-            })
+            return <Box w="100%" p={2} key={index} onClick={() => props.onGraphClick(metricType)}>
+                <TimeSeriesChart
+                    data={environmentalData.getCombinedMetrics()}
+                    xKey="t"
+                    xLabel="Time of Day (UTC)"
+                    yKeys={environmentalData.getDataKeysForMetricType(metricType)}
+                    yLabel={EnvironmentMetrics.METRIC_TYPE_LABELS[metricType]}
+                    lineColors={environmentalData.getGridColorsForMetricType(metricType)}
+                    width={350}
+                    height={350}
+                    cursor="zoom-in"
+                />
+            </Box>
+        })
         }
 
-    </SimpleGrid>;
+    </div>;
 }
 
 type SoloGraphProps = {
@@ -229,8 +228,8 @@ function SoloGraph(props: SoloGraphProps) {
 
 function GraphLegend() {
     return <Flex as="nav" align="center" justify="start" p={4} bg="gray.100">
-            <List className="leading-8 pl-8">
-                <ListItem>
+            <List className="leading-8 md:pl-8">
+                <ListItem style={{ whiteSpace: 'nowrap' }}>
                     <div style={{
                         display: 'inline-block',
                         width: "40px",
@@ -240,7 +239,7 @@ function GraphLegend() {
                     }}/>
                     <div className="inline-block ml-5">Actual Measurement</div>
                 </ListItem>
-                <ListItem>
+                <ListItem style={{ whiteSpace: 'nowrap' }}>
                     <div style={{
                         display: 'inline-block',
                         width: "40px",
