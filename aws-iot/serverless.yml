@@ -29,18 +29,34 @@ constructs:
   sensor-events:
     type: queue
     worker:
-      handler: handler.data_appender
+      handler: api.data_appender
       environment:
         S3_BUCKET: rpi-atmospheric-data
 
 functions:
   eventReceiver:
-    handler: handler.event_receiver
+    handler: api.event_receiver
     memorySize: 256
     environment:
       QUEUE_URL: ${construct:sensor-events.queueUrl}
+  fetchDevices:
+    handler: api.fetch_devices
+    memorySize: 256
+    events:
+      - http:
+          path: /devices
+          method: GET
+          cors: true
+  fetchDevice:
+    handler: api.fetch_device
+    memorySize: 256
+    events:
+      - http:
+          path: /devices/{deviceId}
+          method: GET
+          cors: true
   fetchDeviceMetrics:
-    handler: handler.fetch_metrics
+    handler: api.fetch_metrics
     memorySize: 256
     environment:
       S3_BUCKET: rpi-atmospheric-data
@@ -51,7 +67,7 @@ functions:
           method: GET
           cors: true
   fetchDevicePredictions:
-    handler: handler.fetch_predictions
+    handler: api.fetch_predictions
     memorySize: 256
     environment:
       S3_BUCKET: rpi-atmospheric-data
