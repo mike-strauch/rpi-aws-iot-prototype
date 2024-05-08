@@ -44,8 +44,8 @@ type EnvironmentDataTableProps = {
 // Must use forwardRef to pass ref to the underlying HTMLTableElement as refs are not supported by default for function
 // components. "Normally" you would use the ref inside the same component that creates the ref.
 export const EnvironmentDataTable = forwardRef((props: EnvironmentDataTableProps, ref: Ref<HTMLTableElement>) => {
-    const tablePaddingX = 40;
-    const tablePaddingY = 8;
+    const tablePaddingX = 20;
+    const tablePaddingY = 10;
     const {environmentalData} = props;
     const dataSet = environmentalData.getDataSet();
 

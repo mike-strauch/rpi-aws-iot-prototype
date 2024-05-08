@@ -1,6 +1,7 @@
 'use client'
 
-import {Flex, Icon, Link} from "@chakra-ui/react";
+import {Flex, Icon} from "@chakra-ui/react";
+import Link from "next/link";
 import {usePathname} from "next/navigation";
 import {clsx} from "clsx";
 import {IconType} from "react-icons";
