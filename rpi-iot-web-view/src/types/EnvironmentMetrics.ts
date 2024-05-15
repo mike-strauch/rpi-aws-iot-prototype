@@ -1,12 +1,23 @@
-import TimeSeries from "@/types/TimeSeries";
+import TimeSeries from "./TimeSeries";
 
 /**
  * Encapsulates the logic for managing and combining environmental measurements and predictions
  */
 export default class EnvironmentMetrics {
     combinedMetrics?: TimeSeries | null;
-    static METRIC_TYPE_KEYS: Record<string, string> = {temperature: 'tmp', humidity: 'hum', pressure: 'pr'};
-    static METRIC_TYPE_LABELS: Record<string, string> = {temperature: 'Temperature (in C)', humidity: 'Humidity (in %)', pressure: 'Pressure (in hPa)'};
+    static TEMPERATURE_TYPE: string = 'temperature';
+    static HUMIDITY_TYPE: string = 'humidity';
+    static PRESSURE_TYPE: string = 'pressure';
+    static METRIC_TYPE_KEYS: Record<string, string> = {
+        [EnvironmentMetrics.TEMPERATURE_TYPE]: 'tmp',
+        [EnvironmentMetrics.HUMIDITY_TYPE]: 'hum',
+        [EnvironmentMetrics.PRESSURE_TYPE]: 'pr'
+    };
+    static METRIC_TYPE_LABELS: Record<string, string> = {
+        [EnvironmentMetrics.TEMPERATURE_TYPE]: 'Temperature (in C)',
+        [EnvironmentMetrics.HUMIDITY_TYPE]: 'Humidity (in %)',
+        [EnvironmentMetrics.PRESSURE_TYPE]: 'Pressure (in hPa)'};
+
     //TODO: I dont' like these here.
     static MEASUREMENT_COLOR: string= '#8884d8';
     static PREDICTION_COLOR: string = '#ff7300';
@@ -63,11 +74,12 @@ export default class EnvironmentMetrics {
      * @param measurements
      * @param predictions
      */
-    public combineMetrics(measurements: TimeSeries, predictions: TimeSeries | null){
-        if (measurements.dataPoints.length) {
+    public combineMetrics(measurements: TimeSeries | null, predictions: TimeSeries | null){
+        if (measurements && measurements.dataPoints.length) {
             if (predictions && !predictions.isEmpty())
                 this.combinedMetrics = this.mergePredictions(measurements, predictions);
             else
+                // IMPROVEMENT: Might be better to always create a new object to avoid clobbering the original data.
                 this.combinedMetrics = measurements;
         } else if (predictions && !predictions.isEmpty()) {
             this.combinedMetrics = this.convertMeasurementsToPredictions(predictions);
@@ -78,6 +90,12 @@ export default class EnvironmentMetrics {
     /**
      * Takes a set of metrics and predictions in TimeSeries form and consolidates them into a single TimeSeries with
      * their own unique keys in the newly created TimeSeries.
+     *
+     * //IMPROVEMENT: Need to figure out what actually makes sense for these scenarios. Seems like having more
+     * // predictions than measurements should keep the predictions. Not sure how recharts will handle it though.
+     * When measurements is shorter than predictions, predictions are truncated.
+     * When measurements is longer than predictions, extra measurements are kept but no predictions are included.
+     *
      * @param measurements
      * @param predictions
      * @private
@@ -97,7 +115,7 @@ export default class EnvironmentMetrics {
             // TODO: It also assumes that the timeseries have the exact same number of entries
             const mergedRow: { [key: string]: any } = {
                 ...measurementDataPoint,
-                ...(this.migrateToPredictionKeys(predictions.dataPoints[index]))
+                ...(index < predictions.dataPoints.length ? this.migrateToPredictionKeys(predictions.dataPoints[index]): [])
             };
 
             return mergedRow;

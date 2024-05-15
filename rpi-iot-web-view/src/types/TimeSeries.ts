@@ -1,5 +1,3 @@
-
-
 export default class TimeSeries {
     dataPoints: ({[key:string]: any})[] = [];
     date?: string | null = null;
@@ -15,5 +13,9 @@ export default class TimeSeries {
 
     isEmpty(): boolean {
         return this.dataPoints.length === 0;
+    }
+
+    append(data: {[key:string]: any}) {
+        this.dataPoints.push(data);
     }
 }
