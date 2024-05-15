@@ -6,9 +6,9 @@ from botocore.exceptions import ClientError
 from io import BytesIO
 
 S3_BUCKET = os.getenv('S3_BUCKET')
+# IMPROVEMENT: Might make more sense for this default value to go in api instead of here
 EMPTY_JSON_ARRAY = '{"entries":[]}'
 
-S3 = boto3.client('s3')
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
@@ -39,9 +39,9 @@ def append_data_as_json(data_points, file_key):
 
 # Stores a file in S3 with the given key and content.
 def store_file_stream(file_key, file_content):
-    # Store the file in the S3 bucket
     try:
-        S3.put_object(Bucket=S3_BUCKET, Key=file_key, Body=file_content)
+        s3 = boto3.client('s3')
+        s3.put_object(Bucket=S3_BUCKET, Key=file_key, Body=file_content)
     except Exception as e:
         log.error(f"An error occurred while storing file {file_key} in {S3_BUCKET}: {e}")
 
@@ -81,12 +81,14 @@ def _store_json_file(file_key, json_data):
 
 # Attempts to load the file from S3. Returns None if the file does not exist or if an error occurs.
 def _safe_load_file(file_key):
+    s3 = boto3.client('s3')
+    log.debug(f"Checking if file {file_key} exists in {S3_BUCKET}")
+    file_params = {'Bucket': S3_BUCKET, 'Key': file_key}
+
     try:
-        log.debug(f"Checking if file {file_key} exists in {S3_BUCKET}")
-        file_params = {'Bucket': S3_BUCKET, 'Key': file_key}
-        S3.head_object(**file_params)
+        s3.head_object(**file_params)
         log.debug(f"File {file_key} exists in {S3_BUCKET}.")
-        return S3.get_object(**file_params)
+        return s3.get_object(**file_params)
     except ClientError as e:
         error_code = e.response['Error']['Code']
         if error_code == '404' or error_code == 'NoSuchKey':

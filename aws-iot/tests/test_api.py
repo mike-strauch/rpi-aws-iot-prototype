@@ -1,132 +1,114 @@
-from api import event_receiver, data_appender
+import boto3
+from api import fetch_device, fetch_devices, fetch_metrics, fetch_predictions
 from moto import mock_aws
 import json
-import importlib
-import boto3
+from data_store import append_data_as_json
 from datetime import datetime
+import aws_helper
 
 S3_BUCKET = 'test-bucket'
 AWS_REGION = 'us-west-1'
 
 
 @mock_aws
-def test_event_receiver(monkeypatch):
-    sqs = boto3.client('sqs')
-    mock_queue = _create_mock_queue(sqs)
-    _setup_environment(monkeypatch, {
-        'QUEUE_URL': mock_queue['QueueUrl']
-    })
+def test_fetch_device():
+    device_name = 'TestThing'
+    thing_type_name = 'TestDevice'
+    iot = boto3.client('iot')
+    iot.create_thing_type(thingTypeName=thing_type_name)
+    iot.create_thing(thingName=device_name, thingTypeName=thing_type_name)
 
-    event = {
-        "t": 12345,
-        "tmp": 28,
-        "hum": 54.6,
-        "pr": 1013.25
-    }
-
-    response = event_receiver(event, None)
-
+    response = fetch_device({'pathParameters': {'deviceId': device_name}}, None)
     assert response['statusCode'] == 200
-    assert json.loads(response['body']) == {
-        "message": "data received"
-    }
+    assert response['body'] == '{"name": "TestThing", "version": 1, "type": "TestDevice"}'
+    _assert_cors(response)
 
-    messages = sqs.receive_message(QueueUrl=mock_queue['QueueUrl'], MaxNumberOfMessages=1)
-    assert 'Messages' in messages
-    assert len(messages['Messages']) == 1
-    message = messages['Messages'][0]
-    assert message['Body'] == json.dumps(event)
-
-
-@mock_aws
-def test_event_receiver_no_event():
-    response = event_receiver(None, None)
+    response = fetch_device({'pathParameters': {}}, None)
     assert response['statusCode'] == 400
-    assert json.loads(response['body']) == {
-        "message": "No event data was found"
-    }
+    assert response['body'] == '{"message": "No device ID provided"}'
+
+    response = fetch_device({'pathParameters': {'deviceId': 'NonExistentDevice'}}, None)
+    assert response['statusCode'] == 404
+    assert response['body'] == '{"message": "Device not found"}'
 
 
 @mock_aws
-def test_event_receiver_sqs_send_message_failure():
-    response = event_receiver({}, None)
-    assert response['statusCode'] == 500
+def test_fetch_devices():
+    response = fetch_devices({}, None)
+    assert response['statusCode'] == 200
+    assert json.loads(response['body']) == {"devices": []}
+
+    device_name = 'TestThing'
+    thing_type_name = 'TestDevice'
+    iot = boto3.client('iot')
+    iot.create_thing_type(thingTypeName=thing_type_name)
+    iot.create_thing(thingName=device_name, thingTypeName=thing_type_name)
+
+    response = fetch_devices({}, None)
+    assert response['statusCode'] == 200
+    assert json.loads(response['body']) == {"devices": [{"name": "TestThing", "version": 1, "type": "TestDevice"}]}
+    _assert_cors(response)
 
 
 @mock_aws
-def test_data_appender_empty_dataset(monkeypatch):
-    _setup_environment(monkeypatch, {'S3_BUCKET': S3_BUCKET, 'AWS_DEFAULT_REGION': AWS_REGION})
+def test_fetch_metrics(monkeypatch):
+    aws_helper.setup_aws(monkeypatch)
     s3 = boto3.client('s3')
     s3.create_bucket(Bucket=S3_BUCKET, CreateBucketConfiguration={'LocationConstraint': AWS_REGION})
 
-    data_points = {"entries": [{"t": 12345, "tmp": 28, "hum": 54.6, "pr": 1013.25}]}
-    data_appender({
-        "Records": [{"body": json.dumps(data_points['entries'][0])}]
-    }, None)
+    response = fetch_metrics({'queryStringParameters': {'date': 'invalid_date'}}, None)
+    assert response['statusCode'] == 400
+    assert response['body'] == '{"message": "Invalid date parameter"}'
 
     date_today = datetime.now().strftime("%Y-%m-%d")
-    data_file = s3.get_object(Bucket=S3_BUCKET, Key=date_today)
-    assert data_file is not None
+    response = fetch_metrics({'queryStringParameters': {'date': date_today}}, None)
+    assert response['statusCode'] == 200
+    assert json.loads(response['body']) == {"entries": []}
+    _assert_cors(response)
 
-    data = json.loads(data_file['Body'].read())
-    assert data == data_points
+    append_data_as_json([{'t': 234234234, 'tmp': 24.5}], date_today)
+    response = fetch_metrics({'queryStringParameters': {'date': date_today}}, None)
+    assert response['statusCode'] == 200
+    assert json.loads(response['body']) == {"entries": [{"t": 234234234, "tmp": 24.5}]}
+    _assert_cors(response)
+
+    response = fetch_metrics({'queryStringParameters': {'date': '2023-05-03'}}, None)
+    assert response['statusCode'] == 200
+    assert json.loads(response['body']) == {"entries": []}
+    _assert_cors(response)
 
 
 @mock_aws
-def test_data_appender_existing_data_set(monkeypatch):
-    _setup_environment(monkeypatch, {'S3_BUCKET': S3_BUCKET, 'AWS_DEFAULT_REGION': AWS_REGION})
-    s3 = boto3.client('s3')
-    s3.create_bucket(Bucket=S3_BUCKET, CreateBucketConfiguration={'LocationConstraint': AWS_REGION})
-    date_today = datetime.now().strftime("%Y-%m-%d")
-
-    existing_data_points = {"entries": [{"t": 12345, "tmp": 28, "hum": 54.6, "pr": 1013.25}]}
-    s3.put_object(Bucket=S3_BUCKET, Key=date_today, Body=json.dumps(existing_data_points))
-
-    appended_data_point = {"t": 54321, "tmp": 30, "hum": 60, "pr": 1014.25}
-    data_appender({
-        "Records": [{"body": json.dumps(appended_data_point)}]
-    }, None)
-
-    data_file = s3.get_object(Bucket=S3_BUCKET, Key=date_today)
-    assert data_file is not None
-
-    data = json.loads(data_file['Body'].read())
-    all_data_points = existing_data_points["entries"] + [appended_data_point]
-    assert data == {"entries": all_data_points}
-
-
-@mock_aws
-def test_data_appender_no_datapoints(monkeypatch):
-    _setup_environment(monkeypatch, {'S3_BUCKET': S3_BUCKET, 'AWS_DEFAULT_REGION': AWS_REGION})
+def test_fetch_predictions(monkeypatch):
+    aws_helper.setup_aws(monkeypatch)
     s3 = boto3.client('s3')
     s3.create_bucket(Bucket=S3_BUCKET, CreateBucketConfiguration={'LocationConstraint': AWS_REGION})
 
-    data_appender({
-        "Records": []
-    }, None)
+    response = fetch_predictions({'queryStringParameters': {'date': 'invalid_date'}}, None)
+    assert response['statusCode'] == 400
+    assert response['body'] == '{"message": "Invalid date parameter"}'
 
     date_today = datetime.now().strftime("%Y-%m-%d")
-    try:
-        s3.get_object(Bucket=S3_BUCKET, Key=date_today)
-        assert False, "Data file should not exist"
-    except s3.exceptions.NoSuchKey:
-        assert True, "Data file does not exist"
+    response = fetch_predictions({'queryStringParameters': {'date': date_today}}, None)
+    assert response['statusCode'] == 200
+    assert json.loads(response['body']) == {"entries": []}
+    _assert_cors(response)
+
+    append_data_as_json([{'t': 234234234, 'tmp': 24.5}], date_today + '-predictions')
+    response = fetch_predictions({'queryStringParameters': {'date': date_today}}, None)
+    assert response['statusCode'] == 200
+    assert json.loads(response['body']) == {"entries": [{"t": 234234234, "tmp": 24.5}]}
+    _assert_cors(response)
+
+    response = fetch_predictions({'queryStringParameters': {'date': '2023-05-03'}}, None)
+    assert response['statusCode'] == 200
+    assert json.loads(response['body']) == {"entries": []}
+    _assert_cors(response)
 
 
-def _create_mock_queue(sqs):
-    queue_name = 'my-test-queue'
-    return sqs.create_queue(QueueName=queue_name)
-
-
-def _setup_environment(monkeypatch, vars_to_set):
-    for key, value in vars_to_set.items():
-        monkeypatch.setenv(key, value)
-
-    # These modules must be reloaded after the environment variables are set otherwise they will have blank values
-    # for static variables.
-    import api
-    importlib.reload(api)
-
-    import data_store
-    importlib.reload(data_store)
+def _assert_cors(response):
+    assert 'Access-Control-Allow-Origin' in response['headers']
+    assert response['headers']['Access-Control-Allow-Origin'] == '*'
+    assert 'Access-Control-Allow-Credentials' in response['headers']
+    assert response['headers']['Access-Control-Allow-Credentials'] == True
 

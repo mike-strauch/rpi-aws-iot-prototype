@@ -5,7 +5,7 @@ import re
 import boto3
 from datetime import datetime
 
-from data_store import load_file_as_json, append_data_as_json
+from data_store import load_file_as_json, append_data_as_json, EMPTY_JSON_ARRAY
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -46,36 +46,54 @@ def data_appender(event, context):
 
 
 def fetch_devices(event, context):
-    client = boto3.client('iot')
+    iot = boto3.client('iot')
     log.debug('Fetching all devices')
+
     try:
-        response = client.list_things()
-        things = response['things']
-        result = {"devices": []}
-
-        for thing in things:
-            result["devices"].append({
-                "name": thing['thingName'],
-                "version": thing['version'],
-                "type": thing['thingTypeName']
-            })
-
-        log.info(f"Devices fetched successfully: {result}")
-        return _default_cors_response(200, result)
+        response = iot.list_things()
     except Exception:
         log.error(f"An error occurred", exc_info=True)
         return _default_cors_response(500, {'message': 'An error occurred while listing devices.'})
 
+    things = response['things']
+    if not things:
+        return _default_cors_response(200, {"devices": []})
+
+    result = {"devices": []}
+    for thing in things:
+        result["devices"].append({
+            "name": thing['thingName'],
+            "version": thing['version'],
+            "type": thing['thingTypeName']
+        })
+
+    log.info(f"Devices fetched successfully: {result}")
+    return _default_cors_response(200, result)
+
 
 def fetch_device(event, context):
     path_params = event.get('pathParameters', {})
-    device_id = path_params.get('user_id')
+    device_id = path_params.get('deviceId')
 
     if not device_id:
         return _default_cors_response(400, {'message': 'No device ID provided'})
 
     log.debug(f'Fetching data for device with ID {device_id}')
-    return _default_cors_response(200, {'device_id': device_id})
+    iot = boto3.client('iot')
+
+    try:
+        thing = iot.describe_thing(thingName=device_id)
+    except iot.exceptions.ResourceNotFoundException:
+        thing = None
+
+    if not thing:
+        return _default_cors_response(404, {'message': 'Device not found'})
+
+    return _default_cors_response(200, {
+        'name': thing['thingName'],
+        'version': thing['version'],
+        'type': thing['thingTypeName']
+    })
 
 
 # HTTP accessible Lambda Functions
@@ -119,6 +137,9 @@ def _fetch_metrics_from_file(file_key):
     log.debug(f'Fetching data for file with key {file_key}')
     try:
         json_data = load_file_as_json(file_key)
+        if not json_data:
+            json_data = json.loads(EMPTY_JSON_ARRAY)
+
         log.debug(f"File \'{file_key}\' fetched {'successfully' if json_data else 'unsuccessfully'}.")
         return _default_cors_response(200, json_data)
 
