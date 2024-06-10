@@ -1,23 +1,34 @@
 'use client' // required to be able to use icons in this component
 
 import React from "react";
-import {Heading, Icon, ListItem, UnorderedList} from "@chakra-ui/react";
+import {Heading, Icon, List, ListItem, UnorderedList} from "@chakra-ui/react";
 import Link from "next/link";
 import {PiComputerTowerLight} from "react-icons/pi";
 import {GoGraph} from "react-icons/go";
+import SectionHeading from "@/app/ui/SectionHeading";
 
 export default function Home() {
   return (
-      <main className="flex min-h-screen flex-col items-center p-10 border-none">
-          <div className="self-start max-h-5 mt-0">
-              <Heading as="h1" className="text-2xl">Environment Monitoring and Prediction IoT Project</Heading>
+      <main className="flex min-h-screen flex-col items-center p-10">
+          <div className="self-start mb-8">
+              <SectionHeading>Environment Monitoring and Prediction IoT Project</SectionHeading>
           </div>
-          <div className="w-full my-5">
-              <Heading as="h2" className="text-xl">Visit any sub-section of this application:</Heading>
-              <UnorderedList className="text-lg">
-                  <ListItem><Link href="/graphs"><Icon as={GoGraph} /> Graphs</Link></ListItem>
-                  <ListItem><Link href="/devices"><Icon as={PiComputerTowerLight} /> Devices (under construction)</Link></ListItem>
-              </UnorderedList>
+          <div className="self-start w-1/2 bg-white p-6 drop-shadow-md bg-gray-300">
+              <Heading as="h2" className="text-xl text-gray-700 mb-4">Visit any sub-section of this application:</Heading>
+              <List className="text-lg space-y-2 ml-3" >
+                  <ListItem>
+                      <Link href="/graphs" className="flex items-center space-x-2 text-blue-600 hover:text-blue-800">
+                          <Icon as={GoGraph} className="text-2xl"/>
+                          <span>Graphs</span>
+                      </Link>
+                  </ListItem>
+                  <ListItem>
+                      <Link href="/devices" className="flex items-center space-x-2 text-blue-600 hover:text-blue-800">
+                          <Icon as={PiComputerTowerLight} className="text-2xl"/>
+                          <span>Devices (in development)</span>
+                      </Link>
+                  </ListItem>
+              </List>
           </div>
       </main>
   );
