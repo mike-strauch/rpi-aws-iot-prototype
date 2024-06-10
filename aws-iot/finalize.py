@@ -8,8 +8,6 @@ from data_store import delete_file
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
-MODELS_FOLDER = os.getenv('MODELS_FOLDER')
-
 
 # IMPROVEMENT: This ought to take parameters to indicate which resources to clean up so that the step functions can
 # pass in the appropriate names/ids of resources to clean up rather than inferring the names based on the current date.

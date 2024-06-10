@@ -1,7 +1,5 @@
 # For testing to make sure a model is actually predicting values
-
 import pickle
-
 
 with open('2024-04-08-humidity-model.pkl', 'rb') as file:
     model = pickle.load(file)
