@@ -45,6 +45,7 @@ def data_appender(event, context):
         log.error(f"An error occurred while appending data to file with key {file_key}: {e}")
 
 
+# Public API Lambda Functions
 def fetch_devices(event, context):
     iot = boto3.client('iot')
     log.debug('Fetching all devices')

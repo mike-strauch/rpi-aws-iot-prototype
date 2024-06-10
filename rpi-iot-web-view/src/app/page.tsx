@@ -17,16 +17,16 @@ export default function Home() {
               <Heading as="h2" className="text-xl text-gray-700 mb-4">Visit any sub-section of this application:</Heading>
               <List className="text-lg space-y-2 ml-3" >
                   <ListItem>
-                      <Link href="/graphs" className="flex items-center space-x-2 text-blue-600 hover:text-blue-800">
+                      <Link href="/graphs" className="space-x-2 text-blue-600 hover:text-blue-800">
                           <Icon as={GoGraph} className="text-2xl"/>
                           <span>Graphs</span>
                       </Link>
                   </ListItem>
                   <ListItem>
-                      <Link href="/devices" className="flex items-center space-x-2 text-blue-600 hover:text-blue-800">
+                      <Link href="/devices" className="space-x-2 text-blue-600 hover:text-blue-800 inline-block">
                           <Icon as={PiComputerTowerLight} className="text-2xl"/>
-                          <span>Devices (in development)</span>
-                      </Link>
+                          <span>Devices </span>
+                      </Link> (in development)
                   </ListItem>
               </List>
           </div>
