@@ -94,7 +94,7 @@ export default function GraphsView() {
             }
         }
 
-        fetchData();
+        fetchData().then();
 
         return () => {
             abortController.abort();

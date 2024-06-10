@@ -15,7 +15,7 @@ const SideBar = () => {
     return (
         <Box className="w-56 min-h-screen p-5 bg-gray-800 text-white border-r-8 border-r-white">
             <Heading as="h2" size="lg" className="mb-6 text-xl hidden lg:block">
-                Raspberry Pi IoT
+                Iot Project
             </Heading>
             <Heading as="h2" size="lg" className="mb-6 text-xl lg:hidden">
                 RPi IoT
