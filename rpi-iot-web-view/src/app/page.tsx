@@ -13,8 +13,8 @@ export default function Home() {
           <div className="self-start mb-8">
               <SectionHeading>Environment Monitoring and Prediction IoT Project</SectionHeading>
           </div>
-          <div className="self-start w-1/2 bg-white p-6 drop-shadow-md bg-gray-300">
-              <Heading as="h2" className="text-xl text-gray-700 mb-4">Visit any sub-section of this application:</Heading>
+          <div className="self-start w-1/2 p-6 drop-shadow-md bg-gray-100">
+              <Heading as="h2" className="text-xl text-gray-700 mb-4">Explore all areas of this application:</Heading>
               <List className="text-lg space-y-2 ml-3" >
                   <ListItem>
                       <Link href="/graphs" className="space-x-2 text-blue-600 hover:text-blue-800">
@@ -26,7 +26,7 @@ export default function Home() {
                       <Link href="/devices" className="space-x-2 text-blue-600 hover:text-blue-800 inline-block">
                           <Icon as={PiComputerTowerLight} className="text-2xl"/>
                           <span>Devices </span>
-                      </Link> (in development)
+                      </Link> <span className="hidden lg:inline">(in development)</span>
                   </ListItem>
               </List>
           </div>
