@@ -237,7 +237,7 @@ function GraphLegend() {
                         backgroundColor: `${EnvironmentMetrics.MEASUREMENT_COLOR}`,
                         verticalAlign: "middle"
                     }}/>
-                    <div className="inline-block ml-5">Actual Measurement</div>
+                    <div className="inline-block ml-5">Measurement</div>
                 </ListItem>
                 <ListItem style={{ whiteSpace: 'nowrap' }}>
                     <div style={{
